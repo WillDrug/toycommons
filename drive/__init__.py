@@ -24,9 +24,10 @@ class DriveConnect:
             self.__creds_json = self.__creds.to_json()
             self.config.drive_token = json.loads(self.__creds_json)
 
-    def manual(self, secret):
+    @staticmethod
+    def manual(secret):
         secret = json.loads(secret)
         InstalledAppFlow.from_client_config()
         flow = InstalledAppFlow.from_client_config(secret, self.SCOPES)
         creds = flow.run_local_server(port=0)
-        self.config.drive_token = json.loads(creds.to_json())
+        return json.loads(creds.to_json())
