@@ -24,10 +24,3 @@ class DriveConnect:
                 raise AuthException(f'Token failed for Google Drive. Update manually.')
             self.__creds_json = self.__creds.to_json()
             self.config.drive_token = json.loads(self.__creds_json)
-
-    @classmethod
-    def manual(cls, secret):
-        secret = json.loads(secret)
-        flow = InstalledAppFlow.from_client_config(secret, cls.SCOPES)
-        creds = flow.run_local_server(port=0)
-        return json.loads(creds.to_json())
