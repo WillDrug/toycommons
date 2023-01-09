@@ -2,3 +2,4 @@ pymongo
 pydantic
 requests
 google
+google-api-python-client
