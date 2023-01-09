@@ -1,7 +1,7 @@
 from os import getenv
 from pymongo import MongoClient
 from toycommons.config import Config
-
+from toycommons.drive import DriveConnect
 
 class ToyInfra:
     @staticmethod
@@ -11,7 +11,7 @@ class ToyInfra:
         else:
             return arg
 
-    def __init__(self, host='toydb', port=27017, user=None, passwd=None):
+    def __init__(self, host='toydb', port=27017, user=None, passwd=None, init={}):
         host = self.__get_priority_argument_value(host, 'T_HOST')
         port = self.__get_priority_argument_value(port, 'T_PORT')
         user = self.__get_priority_argument_value(user, 'T_USER')
@@ -22,5 +22,6 @@ class ToyInfra:
 
         self.__odbc_connection = MongoClient(host=host, port=port, username=user, password=passwd)
         self.__db = self.__odbc_connection.toyinfra
-        self.config = Config(self.__db.config)
+        self.config = Config(self.__db.config, init=init)
+        self.drive = DriveConnect(self.config)
 
