@@ -12,7 +12,8 @@ class AuthException(Exception):
     pass
 
 class DriveConnect:
-    SCOPES = []
+    SCOPES = ['https://www.googleapis.com/auth/drive.readonly', 'https://www.googleapis.com/auth/documents.readonly']
+
     def __init__(self, config):
         self.config = config
         self.__creds = Credentials.from_authorized_user_info(config.drive_token, scopes=self.SCOPES)
@@ -24,10 +25,9 @@ class DriveConnect:
             self.__creds_json = self.__creds.to_json()
             self.config.drive_token = json.loads(self.__creds_json)
 
-    @staticmethod
-    def manual(secret):
+    @classmethod
+    def manual(cls, secret):
         secret = json.loads(secret)
-        InstalledAppFlow.from_client_config()
-        flow = InstalledAppFlow.from_client_config(secret, self.SCOPES)
+        flow = InstalledAppFlow.from_client_config(secret, cls.SCOPES)
         creds = flow.run_local_server(port=0)
         return json.loads(creds.to_json())
