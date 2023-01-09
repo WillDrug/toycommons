@@ -3,10 +3,10 @@ from time import time
 
 class Config:
     DEFAULTS = {
-        '_re_cache': 30,
-        '_base_url': 'http://localhost:8080',
-        '_discovery_ttl': 5,
-        '_discovery_url': 'http://toydiscover',
+        're_cache': 30,
+        'base_url': 'http://localhost',
+        'discovery_ttl': 5,
+        'discovery_url': 'http://toydiscover'
     }
 
     def __init__(self, collection):
@@ -24,8 +24,12 @@ class Config:
                 self.set_any(param, self.DEFAULTS[param])
 
     def set_any(self, key, value):
-        self.__collection.update_one({'name': key}, {'value': value})
+        self.__collection.update_one({'name': key}, {'$set': {'value': value}}, upsert=True)
         self.__setattr__(f'_{key}', value)
+
+    @property
+    def base_url(self):
+        return self._base_url
 
     @property
     def recache(self):
@@ -46,4 +50,4 @@ class Config:
     @drive_token.setter
     def drive_token(self, value: dict):
         self._drive_token = value
-        self.__collection.update_one({'name': 'drive_token'}, {'value': value})
+        self.__collection.update_one({'name': 'drive_token'}, {'$set': {'value': value}}, upsert=True)

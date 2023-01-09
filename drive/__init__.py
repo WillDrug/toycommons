@@ -17,6 +17,8 @@ class DriveConnect:
     def __init__(self, config):
         self.config = config
         self.__creds = Credentials.from_authorized_user_info(config.drive_token, scopes=self.SCOPES)
+
+    def __refresh(self):
         if not self.__creds or not self.__creds.valid:
             if self.__creds and self.__creds.expired and self.__creds.refresh_token:
                 self.__creds.refresh(Request())
@@ -24,4 +26,6 @@ class DriveConnect:
                 raise AuthException(f'Token failed for Google Drive. Update manually.')
             self.__creds_json = self.__creds.to_json()
             self.config.drive_token = json.loads(self.__creds_json)
+
+            # expiry 2023-01-09T19:22:02.606331Z
 
