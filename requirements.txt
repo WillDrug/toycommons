@@ -1,0 +1,4 @@
+pymongo
+pydantic
+requests
+google
