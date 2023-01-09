@@ -11,7 +11,7 @@ class ToyInfra:
         else:
             return arg
 
-    def __init__(self, host='toydb', port=27017, user=None, passwd=None, init={}):
+    def __init__(self, host='toydb', port=27017, user=None, passwd=None):
         host = self.__get_priority_argument_value(host, 'T_HOST')
         port = self.__get_priority_argument_value(port, 'T_PORT')
         user = self.__get_priority_argument_value(user, 'T_USER')
@@ -22,6 +22,6 @@ class ToyInfra:
 
         self.__odbc_connection = MongoClient(host=host, port=port, username=user, password=passwd)
         self.__db = self.__odbc_connection.toyinfra
-        self.config = Config(self.__db.config, init=init)
+        self.config = Config(self.__db.config)
         self.drive = DriveConnect(self.config)
 

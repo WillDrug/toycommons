@@ -9,13 +9,10 @@ class Config:
         '_discovery_url': 'http://toydiscover',
     }
 
-    def __init__(self, collection, init={}):
+    def __init__(self, collection):
         # database is used only to update. when sync becomes necessary, update this to insert
         # todo: recache timer.
         self.__collection = collection
-        for k in init:
-            if not self.__collection.find_one({'name': k}):
-                self.__collection.insert_one({'name': k, 'value': init[k]})
         self.__recache()
         self.__updated = time()
 
@@ -24,7 +21,11 @@ class Config:
             self.__setattr__(f'_{document["name"]}', document["value"])
         for param in self.DEFAULTS:
             if not hasattr(self, param):
-                setattr(self, param, self.DEFAULTS[param])
+                self.set_any(param, self.DEFAULTS[param])
+
+    def set_any(self, key, value):
+        self.__collection.update_one({'name': key}, {'value': value})
+        self.__setattr__(f'_{key}', value)
 
     @property
     def recache(self):
