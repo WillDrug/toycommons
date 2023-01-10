@@ -11,7 +11,8 @@ class ToyInfra:
         else:
             return arg
 
-    def __init__(self, host='toydb', port=27017, user=None, passwd=None):
+    def __init__(self, name, host='toydb', port=27017, user=None, passwd=None):
+        self.name = name
         host = self.__get_priority_argument_value(host, 'T_HOST')
         port = int(self.__get_priority_argument_value(port, 'T_PORT'))
         user = self.__get_priority_argument_value(user, 'T_USER')
@@ -27,3 +28,11 @@ class ToyInfra:
         if self.config.drive_token:
             self.drive = DriveConnect(self.config)
 
+    @property
+    def self_url(self):
+        if '.' in self.config.base_url:
+            return self.config.base_url + '/' + self.name
+        else:
+            protocol = 'http://' if self.config.base_url.startswith('http://') else 'https://'
+            domain = self.config.base_url.replace('http://', '').replace('https://', '')
+            return f'{protocol}{self.name}.{domain}'
