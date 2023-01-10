@@ -2,6 +2,12 @@ from os import getenv
 from pymongo import MongoClient
 from toycommons.config import Config
 from toycommons.drive import DriveConnect
+from toycommons.toydiscover import ToydiscoverAPI
+import json
+
+
+class InfraException(Exception):
+    pass
 
 class ToyInfra:
     @staticmethod
@@ -27,12 +33,30 @@ class ToyInfra:
         self.drive = None
         if self.config.drive_token:
             self.drive = DriveConnect(self.config)
+        self.discover = ToydiscoverAPI(self.config)
 
-    @property
-    def self_url(self):
+    def get_url(self, service):
         if '.' in self.config.base_url:
-            return self.config.base_url + '/' + self.name
+            return self.config.base_url + '/' + service
         else:
             protocol = 'http://' if self.config.base_url.startswith('http://') else 'https://'
             domain = self.config.base_url.replace('http://', '').replace('https://', '')
-            return f'{protocol}{self.name}.{domain}'
+            return f'{protocol}{service}.{domain}'
+
+    @property
+    def self_url(self):
+        return self.get_url(self.name)
+
+    def get_own_config(self, ignore_cache=False):
+        if not ignore_cache:
+            try:
+                with open(f'{self.name}.json', 'r') as f:
+                    return json.loads(f.read())
+            except FileNotFoundError as e:
+                pass
+        if self.drive is None:
+            raise InfraException(f'No drive connection to fetch {self.name} config. ')
+        bin = self.drive.file_by_name(f'{self.name}.json') or {}
+        with open(f'{self.name}.json', 'wb') as f:
+            f.write(bin)
+        return json.loads(bin.decode())
