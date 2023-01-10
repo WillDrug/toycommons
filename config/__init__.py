@@ -6,7 +6,11 @@ class Config:
         're_cache': 30,
         'base_url': 'http://localhost',
         'discovery_ttl': 5,
-        'discovery_url': 'http://toydiscover'
+        'discovery_url': 'http://toydiscover',
+        'drive_config_sync_ttl': 3000,
+        'config_file_id': None,
+        'drive_token': None,
+        'drive_folder_id': None,
     }
 
     def __init__(self, collection):
@@ -51,3 +55,15 @@ class Config:
     def drive_token(self, value: dict):
         self._drive_token = value
         self.__collection.update_one({'name': 'drive_token'}, {'$set': {'value': value}}, upsert=True)
+
+    @property
+    def drive_config_sync_ttl(self):
+        return self._drive_config_sync_ttl
+
+    @property
+    def config_file_id(self):
+        return self._config_file_id
+
+    @property
+    def drive_folder_id(self):
+        return self._drive_folder_id
