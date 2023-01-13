@@ -1,4 +1,5 @@
 from time import time
+import pickle
 
 
 class SyncedFile:
@@ -16,7 +17,7 @@ class SyncedFile:
         if self.filename is not None:
             try:
                 with open(self.filename, 'r') as f:
-                    self.__data = f.read()
+                    self.__data = pickle.loads(f.read())
             except FileNotFoundError as e:
                 pass
         if self.__data is None:
@@ -26,7 +27,7 @@ class SyncedFile:
         self.__data = self.__process(self.__request())
         if self.filename is not None:
             with open(self.filename, 'wb') as f:
-                f.write(self.__data)
+                pickle.dump(self.__data, f)
 
     @property
     def data(self):
