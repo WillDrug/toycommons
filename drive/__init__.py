@@ -10,23 +10,19 @@ from googleapiclient.http import MediaIoBaseDownload
 from time import time
 
 class Directory:
-    def __init__(self, service, name, fid=None):
+    def __init__(self, service, name, fid, cache_time):
         self.name = name
-        if fid is None:
-            folder = next((q['id'] for q in self.listdir if
-                           q['name'] == name and q['mimeType'] == 'application/vnd.google-apps.folder'), None)
-            if folder is None:  # todo: new file, mimetype = application/vnd.google-apps.folder, create.
-                raise FileNotFoundError(f'Folder {name} was not found in Drive')
-            fid = folder
         self.fid = fid
+        self.__cache_time = cache_time
         self.__last_cached = 0
         self.__cache = []
         self.__service = service
 
     @property
     def listdir(self):
-        if self.__last_cached - time() < -self.config.drive_config_sync_ttl:
+        if self.__last_cached - time() < -self.__cache_time:
             self.__cache = self.__service.files().list(q=f"'{self.fid}' in parents").execute()['files']
+            self.__last_cached = time()
         return self.__cache
 
 
@@ -44,12 +40,9 @@ class DriveConnect:
         self.__creds = Credentials.from_authorized_user_info(config.drive_token, scopes=self.SCOPES)
         self.__drive = build('drive', 'v3', credentials=self.__creds)
         self.directories = {
-            None: Directory(self.__drive, name='', fid=self.config.drive_folder_id)
+            None: Directory(self.__drive, name='', fid=self.config.drive_folder_id,
+                            cache_time=self.config.drive_config_sync_ttl)
         }
-
-        self.__listdir_cached = 0
-        self.__listdir = []
-
 
     def __refresh(self):
         if not self.__creds or not self.__creds.valid:
@@ -73,6 +66,7 @@ class DriveConnect:
         return f.getvalue()
 
     def get_folder_files(self, folder=None) -> dict:
+        self.__refresh()
         return self.directories[folder].listdir
 
     def file_id_by_name(self, name, folder=None):
@@ -87,5 +81,11 @@ class DriveConnect:
             return None  # raise?
         return self.file_by_id(fid)
 
-    def add_directory(self, name, fid=None):
-        self.directories[name] = Directory(self.__drive, name, fid=fid)
+    def add_directory(self, name, fid=None, parent=None):
+        if fid is None:
+            folder = next((q['id'] for q in self.directories[parent].listdir if
+                           q['name'] == name and q['mimeType'] == 'application/vnd.google-apps.folder'), None)
+            if folder is None:  # todo: new file, mimetype = application/vnd.google-apps.folder, create.
+                raise FileNotFoundError(f'Folder {name} was not found in Drive')
+            fid = folder
+        self.directories[name] = Directory(self.__drive, name, fid=fid, cache_time=self.config.drive_config_sync_ttl)

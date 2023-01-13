@@ -29,7 +29,7 @@ class ToyInfra:
 
         self.__odbc_connection = MongoClient(host=host, port=port, username=user, password=passwd)
         self.__db = self.__odbc_connection.toyinfra
-        self.config = Config(self.__db.config)
+        self.config = Config(self.__db.config, self.__db.commands)
         self.drive = None
         if self.config.drive_token:
             self.drive = DriveConnect(self.config)
@@ -47,16 +47,12 @@ class ToyInfra:
     def self_url(self):
         return self.get_url(self.name)
 
-    def get_own_config(self, ignore_cache=False):
-        if not ignore_cache:
-            try:
-                with open(f'{self.name}.json', 'r') as f:
-                    return json.loads(f.read())
-            except FileNotFoundError as e:
-                pass
-        if self.drive is None:
-            raise InfraException(f'No drive connection to fetch {self.name} config. ')
-        bin = self.drive.file_by_name(f'{self.name}.json') or {}
-        with open(f'{self.name}.json', 'wb') as f:
-            f.write(bin)
-        return json.loads(bin.decode())
+    def get_own_config(self, sync_time=None, use_default_sync_time=False):
+        fname = f'{self.name}.json'
+
+        return self.drive.get_synced_file(self.name,
+                                          fname,
+                                          process_function=lambda data: json.loads(data.decode()),
+                                          filename=fname,
+                                          sync_time=sync_time,
+                                          use_default_sync_time=use_default_sync_time)
