@@ -28,8 +28,12 @@ class Config:
 
     def load(self):
         data = self.__collection.find_one({"name": "config"}) or {}
+        del data['name']
+        del data['_id']
         self.config = ConfigData(**data)
         self._commands = self.__collection.find_one({"name": "commands"}) or {'sync': []}
+        del self._commands['_id']
+        del self._commands['name']
         for k in self._commands:
             if k == 'sync':
                 self._commands[k] = [SyncCommand(**q) for q in self._commands[k]]
