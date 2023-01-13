@@ -8,6 +8,7 @@ from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 from googleapiclient.http import MediaIoBaseDownload
 from time import time
+from toycommons.drive.synced import SyncedFile
 
 class Directory:
     def __init__(self, service, name, fid, cache_time):
@@ -89,3 +90,14 @@ class DriveConnect:
                 raise FileNotFoundError(f'Folder {name} was not found in Drive')
             fid = folder
         self.directories[name] = Directory(self.__drive, name, fid=fid, cache_time=self.config.drive_config_sync_ttl)
+
+    def get_synced_file(self, domain, name, process_function=lambda data: data.decode(), filename=None,
+                        sync_time=None, folder=None, use_default_sync_time=False):
+        fid = self.file_id_by_name(name, folder=folder)
+        if fid is None:
+            raise FileNotFoundError(f'Can\'t get id for {name} file.')
+        if use_default_sync_time:
+            sync_time = self.config.drive_config_sync_ttl
+        return SyncedFile(self.config, domain, name, lambda: self.file_by_id(fid), process_function=process_function,
+                       filename=filename, sync_time=sync_time)
+
