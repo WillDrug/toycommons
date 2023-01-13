@@ -31,7 +31,7 @@ class Config:
         self._commands = self.__collection.find_one({"name": "commands"})
 
     def save(self):
-        self.__collection.update_one({"name": "config", {"$set": asdict(self.config)}}, upsert=True)
+        self.__collection.update_one({"name": "config"}, {"$set": asdict(self.config)}, upsert=True)
 
     def __getattr__(self, item):
         if item in [q.name for q in fields(ConfigData)]:
