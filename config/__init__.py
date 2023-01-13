@@ -30,6 +30,9 @@ class Config:
         data = self.__collection.find_one({"name": "config"}) or {}
         self.config = ConfigData(**data)
         self._commands = self.__collection.find_one({"name": "commands"}) or {'sync': []}
+        for k in self._commands:
+            if k == 'sync':
+                self._commands[k] = [SyncCommand(**q) for q in self._commands[k]]
 
     def save(self):
         self.__collection.update_one({"name": "config"}, {"$set": asdict(self.config)}, upsert=True)
@@ -67,12 +70,16 @@ class Config:
         return getattr(self.config, item)
 
     def save_commands(self):
-        self.__collection.update_one({"name": "commands"}, {"$set": self._commands}, upsert=True)
+        cmds = self._commands.copy()
+        for k in cmds:
+            cmds[k] = [asdict(q) for q in cmds]
+        self.__collection.update_one({"name": "commands"}, {"$set": cmds}, upsert=True)
 
     def add_command(self, action, command):
         if action not in self._commands:
-            raise TypeError(f'Action is not recognized and hasn\'t been dataclass\'d')
-        self._commands[action].append(command)
+            self._commands[action] = []
+            # raise TypeError(f'Action is not recognized and hasn\'t been dataclass\'d')
+        self._commands[action].append(asdict(command))
         self.save_commands()
 
     def get_commands(self, action, **query):
