@@ -83,7 +83,7 @@ class Config:
         self.save_commands()
 
     def get_commands(self, action, **query):
-        return [q for q in self._commands.get(action, ()) if all(q[k] == query[k] for k in query)]
+        return [q for q in self._commands.get(action, ()) if all(getattr(q, k) == query[k] for k in query)]
 
     def delete_command(self, action, command):
         self._commands[action].remove(command)
