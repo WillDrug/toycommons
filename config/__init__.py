@@ -72,7 +72,7 @@ class Config:
     def save_commands(self):
         cmds = self._commands.copy()
         for k in cmds:
-            cmds[k] = [asdict(q) for q in cmds]
+            cmds[k] = [asdict(q) for q in cmds[k]]
         self.__collection.update_one({"name": "commands"}, {"$set": cmds}, upsert=True)
 
     def add_command(self, action, command):
