@@ -44,8 +44,10 @@ class Config:
 
     def __setattr__(self, key, value):
         if key in [q.name for q in fields(ConfigData)]:
-            self.save()
-            return setattr(self.config, key, value)
+            try:
+                return setattr(self.config, key, value)
+            finally:
+                self.save()
         return super().__setattr__(key, value)
 
     def __setitem__(self, key, value):
