@@ -53,11 +53,17 @@ class Config:
     def __setitem__(self, key, value):
         if key not in [q.name for q in fields(ConfigData)]:
             raise AttributeError(f'{key} is not a valid config entry')
-        setattr(self.config, key, value)
+        try:
+            return setattr(self.config, key, value)
+        finally:
+            self.save()
 
     def __getitem__(self, item):
         if item not in [q.name for q in fields(ConfigData)]:
             raise AttributeError(f'{item} is not a valid config entry')
+        if time()-self._last_cached > self.config.re_cache:
+            self.load()
+            self._last_cached = time()
         return getattr(self.config, item)
 
     def save_commands(self):
