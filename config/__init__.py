@@ -7,6 +7,7 @@ from dataclasses import dataclass, asdict, fields
 
 @dataclass
 class ConfigData:
+    _id: str = None
     name: str = "config"
     base_url: str = 'http://127.0.0.1'
     discovery_ttl: int = 5
