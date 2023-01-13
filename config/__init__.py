@@ -16,26 +16,34 @@ class ConfigData:
     config_file_id: str = None
     drive_token: dict = None
     drive_folder_id: str = None
+    drive_config_sync_ttl: int = 3000
 
 class Config:
     def __init__(self, collection):
         self._last_cached = time()
         self.__collection = collection
         self.config = None
-        self.recache()
+        self.load()
 
-    def recache(self):
+    def load(self):
         data = self.__collection.find_one({"name": "config"}) or {}
         self.config = ConfigData(**data)
         self._commands = self.__collection.find_one({"name": "commands"})
 
+    def save(self):
+        self.__collection.update_one({"name": "config", {"$set": asdict(self.config)}}, upsert=True)
+
     def __getattr__(self, item):
         if item in [q.name for q in fields(ConfigData)]:
+            if time()-self._last_cached > self.config.re_cache:
+                self.load()
+                self._last_cached = time()
             return getattr(self.config, item)
-        return super().__getattr__(item)
+        return super().__getattribute__(item)
 
     def __setattr__(self, key, value):
         if key in [q.name for q in fields(ConfigData)]:
+            self.save()
             return setattr(self.config, key, value)
         return super().__setattr__(key, value)
 
@@ -50,7 +58,7 @@ class Config:
         return getattr(self.config, item)
 
     def save_commands(self):
-        self.__collection.update_one({"name": "commands"}, {"$set": self._commands})
+        self.__collection.update_one({"name": "commands"}, {"$set": self._commands}, upsert=True)
 
     def add_command(self, action, command):
         if action not in self._commands:
