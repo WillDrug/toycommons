@@ -25,7 +25,8 @@ class Config:
         self.recache()
 
     def recache(self):
-        self.config = ConfigData(**self.__collection.find_one({"name": "config"}))
+        data = self.__collection.find_one({"name": "config"}) or {}
+        self.config = ConfigData(**data)
         self._commands = self.__collection.find_one({"name": "commands"})
 
     def __getattr__(self, item):
