@@ -1,101 +1,65 @@
 from time import time
 from functools import wraps
-from toycommons.model.command import Command
+from toycommons.model.command import SyncCommand
 from dataclasses import asdict
+from dataclasses import dataclass, asdict, fields
 
 
-def cached(func):
-    @wraps(func)
-    def test_cache(self, *args, **kwargs):
-        if time() - self._last_cached < self._config_sync_ttl:
-            self.recache()
-            self._last_cached = time()
-        return func(self, *args, **kwargs)
-    return test_cache
-
+@dataclass
+class ConfigData:
+    name: str = "config"
+    base_url: str = 'http://127.0.0.1'
+    discovery_ttl: int = 5
+    re_cache: int = 30
+    discovery_url: str = 'http://toydiscover'
+    config_sync_ttl: int = 30
+    config_file_id: str = None
+    drive_token: dict = None
+    drive_folder_id: str = None
 
 class Config:
-    DEFAULTS = {
-        're_cache': 30,
-        'base_url': 'http://localhost',
-        'discovery_ttl': 5,
-        'discovery_url': 'http://toydiscover',
-        'config_sync_ttl': 30,
-        'config_file_id': None,
-        'drive_token': None,
-        'drive_folder_id': None
-    }
-
-    def __init__(self, collection, commands):
-        # database is used only to update. when sync becomes necessary, update this to insert
-
+    def __init__(self, collection):
         self._last_cached = time()
         self.__collection = collection
-        self.__commands = commands
+        self.config = None
         self.recache()
 
     def recache(self):
-        for document in self.__collection.find():
-            self.__setattr__(f'_{document["name"]}', document["value"])
-        for param in self.DEFAULTS:
-            if not hasattr(self, f'_param'):
-                self.set_any(param, self.DEFAULTS[param])
-        self._commands = list(self.__commands.find())
+        self.config = ConfigData(**self.__collection.find_one({"name": "config"}))
+        self._commands = self.__collection.find_one({"name": "commands"})
 
-    def set_any(self, key, value):
-        self.__collection.update_one({'name': key}, {'$set': {'value': value}}, upsert=True)
-        self.__setattr__(f'_{key}', value)
+    def __getattr__(self, item):
+        if item in [q.name for q in fields(ConfigData)]:
+            return getattr(self.config, item)
+        return super().__getattr__(item)
 
-    @property
-    @cached
-    def base_url(self):
-        return self._base_url
+    def __setattr__(self, key, value):
+        if key in [q.name for q in fields(ConfigData)]:
+            return setattr(self.config, key, value)
+        return super().__setattr__(key, value)
 
-    @property
-    @cached
-    def discovery_ttl(self):
-        return self._discovery_ttl
+    def __setitem__(self, key, value):
+        if key not in [q.name for q in fields(ConfigData)]:
+            raise AttributeError(f'{key} is not a valid config entry')
+        setattr(self.config, key, value)
 
-    @property
-    @cached
-    def discovery_url(self):
-        return self._discovery_url
+    def __getitem__(self, item):
+        if item not in [q.name for q in fields(ConfigData)]:
+            raise AttributeError(f'{item} is not a valid config entry')
+        return getattr(self.config, item)
 
-    @property
-    @cached
-    def drive_token(self):
-        return self._drive_token
+    def save_commands(self):
+        self.__collection.update_one({"name": "commands"}, {"$set": self._commands})
 
-    @drive_token.setter
-    def drive_token(self, value: dict):
-        self._drive_token = value
-        self.__collection.update_one({'name': 'drive_token'}, {'$set': {'value': value}}, upsert=True)
+    def add_command(self, action, command):
+        if action not in self._commands:
+            raise TypeError(f'Action is not recognized and hasn\'t been dataclass\'d')
+        self._commands[action].append(command)
+        self.save_commands()
 
-    @property
-    @cached
-    def drive_config_sync_ttl(self):
-        return self._drive_config_sync_ttl
+    def find_command(self, action, **query):
+        return [q for q in self._commands.get(action, ()) if all(q[k] == query[k] for k in query)]
 
-    @property
-    @cached
-    def config_file_id(self):
-        return self._config_file_id
-
-    @property
-    @cached
-    def drive_folder_id(self):
-        return self._drive_folder_id
-
-    @property
-    @cached
-    def commands(self):
-        return [Command(**q) for q in self._commands]
-
-    def get_commands(self, **query):
-        return [q for q in self.commands if all([q[k] == query[k] for k in query])]
-
-    def send_command(self, command):
-        self.__commands.insert_one(asdict(command))
-
-    def delete_command(self, command):
-        self.__commands.delete_one({'_id': command.db_id})
+    def delete_command(self, action, command):
+        self._commands[action].remove(command)
+        self.save_commands()

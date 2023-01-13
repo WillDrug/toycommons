@@ -29,7 +29,7 @@ class ToyInfra:
 
         self.__odbc_connection = MongoClient(host=host, port=port, username=user, password=passwd)
         self.__db = self.__odbc_connection.toyinfra
-        self.config = Config(self.__db.config, self.__db.commands)
+        self.config = Config(self.__db.mainline)
         self.drive = None
         if self.config.drive_token:
             self.drive = DriveConnect(self.config)
