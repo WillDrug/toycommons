@@ -29,7 +29,7 @@ class Config:
     def load(self):
         data = self.__collection.find_one({"name": "config"}) or {}
         self.config = ConfigData(**data)
-        self._commands = self.__collection.find_one({"name": "commands"})
+        self._commands = self.__collection.find_one({"name": "commands"}) or {'sync': []}
 
     def save(self):
         self.__collection.update_one({"name": "config"}, {"$set": asdict(self.config)}, upsert=True)
