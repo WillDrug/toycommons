@@ -79,7 +79,7 @@ class Config:
         if action not in self._commands:
             self._commands[action] = []
             # raise TypeError(f'Action is not recognized and hasn\'t been dataclass\'d')
-        self._commands[action].append(asdict(command))
+        self._commands[action].append(command)
         self.save_commands()
 
     def get_commands(self, action, **query):
