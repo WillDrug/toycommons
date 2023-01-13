@@ -37,5 +37,5 @@ class SyncedFile:
         if cmds.__len__() > 0:
             self.sync()
             for c in cmds:
-                self.__config.delete_command(c)
+                self.__config.delete_command('sync', c)
         return self.__data
