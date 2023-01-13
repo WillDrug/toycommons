@@ -7,7 +7,7 @@ from dataclasses import asdict
 def cached(func):
     @wraps(func)
     def test_cache(self, *args, **kwargs):
-        if time() - self._cached < self._config_sync_ttl:
+        if time() - self._last_cached < self._config_sync_ttl:
             self.recache()
             self._last_cached = time()
         return func(self, *args, **kwargs)
