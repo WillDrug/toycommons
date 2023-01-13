@@ -34,6 +34,7 @@ class SyncedFile:
         if self.__sync_time is not None and self.__cached - time() < -self.__sync_time:
             self.sync()
         cmds = self.__config.get_commands('sync', domain=self.domain, file=self.name)
+        print(cmds)
         if cmds.__len__() > 0:
             self.sync()
             for c in cmds:
