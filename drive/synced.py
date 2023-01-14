@@ -40,7 +40,7 @@ class SyncedFile:
                                                           {'$and':
                                                               [
                                                                   {'file_id': self.fid},
-                                                                  {'$nor': {'file_id': None}}
+                                                                  {'$nor': [{'file_id': None}]}
                                                               ]
                                                           }
                                                       ]})
