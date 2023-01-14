@@ -69,7 +69,7 @@ class Config:
         self.__collection.commands.insert_one(asdict(command))
 
     def get_commands(self, **query):
-        return [Command(**q) for q in self.__collection.commands.find(**query)]
+        return [Command(**q) for q in self.__collection.commands.find(query)]
 
     def get_commands_queue(self, **query):
         for cmd in self.get_commands(**query):
