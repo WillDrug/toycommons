@@ -1,6 +1,9 @@
 from dataclasses import dataclass, field
 from itertools import chain
 
+"""
+Nested dataclass to use with ToyInfra.commands Queued Class
+"""
 
 @dataclass
 class Command:

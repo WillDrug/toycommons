@@ -1,5 +1,9 @@
 from dataclasses import dataclass
 
+"""
+Global config dataclass
+"""
+
 @dataclass
 class ConfigData:
     _id: str = None
