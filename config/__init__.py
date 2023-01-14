@@ -66,7 +66,9 @@ class Config:
         return getattr(self.config, item)
 
     def add_command(self, command):
-        self.__collection.commands.insert_one(asdict(command))
+        ins = asdict(command)
+        del ins['_id']
+        self.__collection.commands.insert_one(ins)
 
     def get_commands(self, **query):
         return [Command(**q) for q in self.__collection.commands.find(query)]

@@ -30,8 +30,9 @@ if __name__ == '__main__':
         for q in range(10):
             a = yield q
             if a:
-                print(q)
+                print('gotcha')
+
     getter = test()
     for z in getter:
-        if z == 3:
+        if z == 9:
             getter.send(True)
