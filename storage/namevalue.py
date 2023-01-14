@@ -4,12 +4,10 @@ class DomainNameValue:
         object.__setattr__(self, '_DomainNameValue__collection', collection)
 
     def _get(self, item):
-        print(f'called item {item} get')
-        d = self.__collection.find_one({"domain": self.__domain, "key": item}) or {}
+        d = self.__collection.find_one({"domain": self.__domain, "name": item}) or {}
         return d.get('value')
 
     def _set(self, key, value):
-        print(f'Called set for {key} with {value}')
         return self.__collection.\
             update_one({"name": key, "domain": self.__domain},
                        {"$set": {"domain": self.__domain,
