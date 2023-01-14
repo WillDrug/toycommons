@@ -99,5 +99,5 @@ class DriveConnect:
         if use_default_sync_time:
             sync_time = self.config.drive_config_sync_ttl
         return SyncedFile(self.config, domain, name, lambda: self.file_by_id(fid), process_function=process_function,
-                       filename=filename, sync_time=sync_time)
+                       filename=filename, sync_time=sync_time, fid=fid)
 
