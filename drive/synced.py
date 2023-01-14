@@ -4,11 +4,12 @@ import pickle
 
 class SyncedFile:
     def __init__(self, config, domain, name, request_function, process_function=lambda data: data.decode(),
-                 filename=None, sync_time=None):
+                 filename=None, sync_time=None, fid=None):
         self.__config = config
         self.domain = domain
         self.name = name
         self.filename = filename
+        self.fid = fid
         self.__sync_time = sync_time
         self.__cached = 0
         self.__request = request_function
@@ -33,8 +34,20 @@ class SyncedFile:
     def data(self):
         if self.__sync_time is not None and self.__cached - time() < -self.__sync_time:
             self.sync()
-        cmds_queue = self.__config.get_commands_queue(action='sync', domain=self.domain, file=self.name)
-        for cmd in cmds_queue:
+        cmds_queue = self.__config.get_commands_queue(action='sync', domain=self.domain,
+                                                      **{'$or':
+                                                             {'file': self.name,
+                                                              '$and': {
+                                                                  'file_id': self.fid,
+                                                                  '$not': {'file_id': None}
+                                                              }
+                                                              }
+                                                         }
+                                                      )
+        for _ in cmds_queue:
             self.sync()
-            cmds_queue.send(True)
+            try:
+                cmds_queue.send(True)
+            except StopIteration:
+                pass
         return self.__data
