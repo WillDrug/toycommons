@@ -35,15 +35,15 @@ class SyncedFile:
         if self.__sync_time is not None and self.__cached - time() < -self.__sync_time:
             self.sync()
         cmds_queue = self.__config.get_commands_queue(action='sync', domain=self.domain,
-                                                      **{'$or':
-                                                             {'file': self.name,
-                                                              '$and': {
-                                                                  'file_id': self.fid,
-                                                                  '$not': {'file_id': None}
-                                                              }
-                                                              }
-                                                         }
-                                                      )
+                                                      **{'$or': [
+                                                          {'file': self.name},
+                                                          {'$and':
+                                                               {
+                                                                   'file_id': self.fid,
+                                                                   '$not': {'file_id': None}
+                                                               }
+                                                          }
+                                                      ]})
         for _ in cmds_queue:
             self.sync()
             try:
