@@ -1,13 +1,17 @@
 from os import getenv
 from pymongo import MongoClient
-from toycommons.config import Config
+from toycommons.storage.config import Config
 from toycommons.drive import DriveConnect
 from toycommons.toydiscover import ToydiscoverAPI
+from toycommons.storage.namevalue import DomainNameValue
+from toycommons.storage.queue_dataclass import QueuedDataClass
+from toycommons.model.command import Command
 import json
 
 
 class InfraException(Exception):
     pass
+
 
 class ToyInfra:
     @staticmethod
@@ -26,10 +30,12 @@ class ToyInfra:
 
         if host is None or port is None or user is None or passwd is None:
             raise ConnectionError(f'ToyInfra was initialized without full attributes')
-
         self.__odbc_connection = MongoClient(host=host, port=port, username=user, password=passwd)
         self.__db = self.__odbc_connection.toyinfra
-        self.config = Config(self.__db.mainline)
+        self.config = Config(self.__db.config)
+        self.commands = QueuedDataClass(self.__db.commands, datacls=Command)
+        self.cache = DomainNameValue(self.name, self.__db.cache)
+
         self.drive = None
         if self.config.drive_token:
             self.drive = DriveConnect(self.config)
@@ -56,3 +62,8 @@ class ToyInfra:
                                           filename=fname,
                                           sync_time=sync_time,
                                           use_default_sync_time=use_default_sync_time)
+
+    def cleanup(self, domain=None):
+        if domain is None:
+            domain = self.name
+        self.__db.cache.delete_many({"domain": domain})

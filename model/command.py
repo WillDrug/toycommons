@@ -1,4 +1,5 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from itertools import chain
 
 
 @dataclass
@@ -16,6 +17,15 @@ class Command:
         t = cls.impl_list().get(kwargs.get('action')) or cls
         return object.__new__(t)
 
+    @classmethod
+    def all_fields(cls):
+        fields = {
+            str: 'text',
+            int: 'number',
+            float: 'number'
+        }
+        return {q: fields.get(z, 'text') for q, z in list(set((f, t) for f, t in chain(cls.__annotations__.items(), *[q.__annotations__.items() for q in cls.__subclasses__()])))}
+
 @dataclass
 class SyncCommand(Command):
     action: str = 'sync'
@@ -23,16 +33,5 @@ class SyncCommand(Command):
     file: str = None
     file_id: str = None
 
-
-
 if __name__ == '__main__':
-    def test():
-        for q in range(10):
-            a = yield q
-            if a:
-                print('gotcha')
-
-    getter = test()
-    for z in getter:
-        if z == 9:
-            getter.send(True)
+    print(Command.all_fields())
