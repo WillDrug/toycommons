@@ -61,7 +61,7 @@ class SyncedFile:
             self.sync()
         # check Commands queue to see if a sync was requested.
         if self.__commands_queue is not None:
-            cmds_queue = self.__commands_queue(action='sync', domain=self.domain,
+            cmds_queue = self.__commands_queue.get_queue(action='sync', domain=self.domain,
                                                           **{'$or': [
                                                               {'file': self.name},
                                                               {'$and':
