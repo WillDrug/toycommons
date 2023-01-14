@@ -1,7 +1,3 @@
-
-
-
-
 class DomainNameValue:
     def __init__(self, domain, collection):
         self.domain = domain
@@ -15,9 +11,11 @@ class DomainNameValue:
             return d["value"]
 
     def _set(self, key, value):
-        return self.__collection.update_one({"name": key, "domain": self.domain}, {"domain": self.domain,
-                                                                                   "name": key,
-                                                                                   "value": value}, upsert=True)
+        return self.__collection.update_one({"name": key, "domain": self.domain}, {"$set": {"domain": self.domain,
+                                                                                            "name": key,
+                                                                                            "value": value}},
+                                            upsert=True)
+
     def __getattr__(self, item):
         if item in ['domain', '_DomainNameValue__collection']:  # fixme: figure out a way around this hack
             return object.__getattribute__(self, item)
@@ -33,4 +31,3 @@ class DomainNameValue:
 
     def __getitem__(self, item):
         return self._get(item)
-
