@@ -33,10 +33,8 @@ class SyncedFile:
     def data(self):
         if self.__sync_time is not None and self.__cached - time() < -self.__sync_time:
             self.sync()
-        cmds = self.__config.get_commands('sync', domain=self.domain, file=self.name)
-        print(cmds)
-        if cmds.__len__() > 0:
+        cmds_queue = self.__config.get_commands_queue(action='sync', domain=self.domain, file=self.name)
+        for cmd in cmds_queue:
             self.sync()
-            for c in cmds:
-                self.__config.delete_command('sync', c)
+            cmds_queue.send(True)
         return self.__data

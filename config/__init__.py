@@ -1,6 +1,6 @@
 from time import time
 from functools import wraps
-from toycommons.model.command import SyncCommand
+from toycommons.model.command import Command
 from dataclasses import asdict
 from dataclasses import dataclass, asdict, fields
 
@@ -27,19 +27,11 @@ class Config:
         self.load()
 
     def load(self):
-        data = self.__collection.find_one({"name": "config"}) or {}
-        del data['name']
-        del data['_id']
+        data = {q['name']: q['value'] for q in self.__collection.config.find()}
         self.config = ConfigData(**data)
-        self._commands = self.__collection.find_one({"name": "commands"}) or {'sync': []}
-        del self._commands['_id']
-        del self._commands['name']
-        for k in self._commands:
-            if k == 'sync':
-                self._commands[k] = [SyncCommand(**q) for q in self._commands[k]]
 
-    def save(self):
-        self.__collection.update_one({"name": "config"}, {"$set": asdict(self.config)}, upsert=True)
+    def save(self, key, value):
+        self.__collection.config.update_one({'name': key}, {'$set': {'value': value}})
 
     def __getattr__(self, item):
         if item in [q.name for q in fields(ConfigData)]:
@@ -54,7 +46,7 @@ class Config:
             try:
                 return setattr(self.config, key, value)
             finally:
-                self.save()
+                self.save(key, value)
         return super().__setattr__(key, value)
 
     def __setitem__(self, key, value):
@@ -63,7 +55,7 @@ class Config:
         try:
             return setattr(self.config, key, value)
         finally:
-            self.save()
+            self.save(key, value)
 
     def __getitem__(self, item):
         if item not in [q.name for q in fields(ConfigData)]:
@@ -73,22 +65,17 @@ class Config:
             self._last_cached = time()
         return getattr(self.config, item)
 
-    def save_commands(self):
-        cmds = self._commands.copy()
-        for k in cmds:
-            cmds[k] = [asdict(q) for q in cmds[k]]
-        self.__collection.update_one({"name": "commands"}, {"$set": cmds}, upsert=True)
+    def add_command(self, command):
+        self.__collection.commands.insert_one(asdict(command))
 
-    def add_command(self, action, command):
-        if action not in self._commands:
-            self._commands[action] = []
-            # raise TypeError(f'Action is not recognized and hasn\'t been dataclass\'d')
-        self._commands[action].append(command)
-        self.save_commands()
+    def get_commands(self, **query):
+        return [Command(**q) for q in self.__collection.commands.find(**query)]
 
-    def get_commands(self, action, **query):
-        return [q for q in self._commands.get(action, ()) if all(getattr(q, k) == query[k] for k in query)]
+    def get_commands_queue(self, **query):
+        for cmd in self.get_commands(**query):
+            accepted = yield cmd
+            if accepted:
+                self.delete_command(cmd)
 
-    def delete_command(self, action, command):
-        self._commands[action].remove(command)
-        self.save_commands()
+    def delete_command(self, command):
+        self.__collection.commands.delete_one({"_id": command._id})
