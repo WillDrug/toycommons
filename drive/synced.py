@@ -38,10 +38,10 @@ class SyncedFile:
                                                       **{'$or': [
                                                           {'file': self.name},
                                                           {'$and':
-                                                               {
-                                                                   'file_id': self.fid,
-                                                                   '$not': {'file_id': None}
-                                                               }
+                                                              [
+                                                                  {'file_id': self.fid},
+                                                                  {'$not': {'file_id': None}}
+                                                              ]
                                                           }
                                                       ]})
         for _ in cmds_queue:
