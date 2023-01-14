@@ -3,20 +3,16 @@ class DomainNameValue:
         object.__setattr__(self, 'domain', domain)
         object.__setattr__(self, 'collection', collection)
 
-
     def _get(self, item):
         d = object.__getattribute__(self, 'collection').find_one({"domain": object.__getattribute__(self, 'domain'),
-                                                                  "key": item})
-        if d is None:
-            return None
-        else:
-            return d["value"]
+                                                                  "key": item}) or {}
+        return d.get('value')
 
     def _set(self, key, value):
         return object.__getattribute__(self, 'collection').\
             update_one({"name": key, "domain": object.__getattribute__(self, 'domain')},
                        {"$set": {"domain": object.__getattribute__(self, 'domain'),
-                                 "name": key,"value": value}},
+                                 "name": key, "value": value}},
                        upsert=True)
 
     def __getattr__(self, item):
