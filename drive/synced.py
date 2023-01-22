@@ -7,6 +7,7 @@ class SyncedFile:
     """
     File synced with GDrive
     """
+
     def __init__(self, domain: str, name: str, request_function: Callable,
                  process_function: Callable = lambda data: data.decode(), filename: str = None,
                  sync_time: int = None, fid: str = None, command_queue: "QueuedDataClass" = None):
@@ -57,20 +58,21 @@ class SyncedFile:
         :return: Any, depending on the process function.
         """
         # refresh
+        # it's in negative to re-cache on 0.
         if self.__sync_time is not None and self.__cached - time() < -self.__sync_time:
             self.sync()
         # check Commands queue to see if a sync was requested.
         if self.__commands_queue is not None:
             cmds_queue = self.__commands_queue.get_queue(action='sync', domain=self.domain,
-                                                          **{'$or': [
-                                                              {'file': self.name},
-                                                              {'$and':
-                                                                  [
-                                                                      {'file_id': self.fid},
-                                                                      {'$nor': [{'file_id': None}]}
-                                                                  ]
-                                                              }
-                                                          ]})
+                                                         **{'$or': [
+                                                             {'file': self.name},
+                                                             {'$and':
+                                                                 [
+                                                                     {'file_id': self.fid},
+                                                                     {'$nor': [{'file_id': None}]}
+                                                                 ]
+                                                             }
+                                                         ]})
             for _ in cmds_queue:
                 self.sync()
                 try:

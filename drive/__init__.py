@@ -104,7 +104,7 @@ class DriveConnect:
         self.__refresh()
         return self.directories[folder].listdir
 
-    def file_id_by_name(self, name: str, folder: str = None):
+    def file_id_by_name(self, name: str, folder: str = None) -> str or None:
         """
         Find file id by name
         :param name: Name of file
@@ -114,6 +114,18 @@ class DriveConnect:
         for f in self.get_folder_files(folder=folder):
             if f['name'] == name:
                 return f['id']
+        return None
+
+    def name_by_file_id(self, fid: str, folder: str = None) -> str or None:
+        """
+        Get file name by it's ID
+        :param fid: ID of a Drive File
+        :param folder: Folder (None for default) name.
+        :return: str or None if not found
+        """
+        for f in self.get_folder_files(folder=folder):
+            if f['id'] == fid:
+                return f['name']
         return None
 
     def file_by_name(self, name: str, folder: str = None) -> bytes:
@@ -144,26 +156,38 @@ class DriveConnect:
             fid = folder
         self.directories[name] = Directory(self.__drive, name, fid=fid, cache_time=self.config.drive_config_sync_ttl)
 
-    def get_synced_file(self, domain: str, name: str, process_function: Callable = lambda data: data.decode(),
-                        filename: str = None, sync_time: int = None, folder: str = None,
-                        use_default_sync_time: bool = False, command_queue: "QueuedDataClass" = None) -> SyncedFile:
+    def get_synced_file(self, domain: str, name: str = None, process_function: Callable = lambda data: data.decode(),
+                        fid: str = None, filename: str = None, sync_time: int = None, folder: str = None,
+                        use_default_sync_time: bool = False, command_queue: "QueuedDataClass" = None,
+                        copy_filename: bool = False) -> SyncedFile:
         """
         Generated a SyncedFile objects via parameters.
         :param command_queue: get_commands_queue function from toyinfra.
         :param domain: Domain for the synced file (represents toychest application)
         :param name: Filename within Google Drive
         :param process_function: Function which is called upon bytes data downloaded
+        :param fileid: Id of the file as a substitute for Name
         :param filename: Filename for local storage
         :param sync_time: How often to refresh; If None, will never be refreshed.
         :param folder: Folder name to search for the file
         :param use_default_sync_time: Replace sync_time with config.drive_config_sync_ttl
+        :param copy_filename: If set to true, filename will be overridden by google drive file name.
         :return: SyncedFile
         """
-        fid = self.file_id_by_name(name, folder=folder)
+        if fid is None and name is None:
+            raise ValueError(f'Either name of file id should be provided to get a synced file.')
+        if fid is None:
+            fid = self.file_id_by_name(name, folder=folder)
         if fid is None:
             raise FileNotFoundError(f'Can\'t get id for {name} file.')
+        if name is None:
+            name = self.name_by_file_id(fid, folder=folder)
+        if name is None:
+            raise FileNotFoundError(f'ID {fid} does not have a corresponding file')
         if use_default_sync_time:
             sync_time = self.config.drive_config_sync_ttl
+        if copy_filename:
+            filename = name
         return SyncedFile(domain, name, lambda: self.file_by_id(fid), process_function=process_function,
                           filename=filename, sync_time=sync_time, fid=fid, command_queue=command_queue)
 

@@ -85,7 +85,7 @@ class ToyInfra:
         fname = f'{self.name}.json'
 
         return self.drive.get_synced_file(self.name,
-                                          fname,
+                                          name=fname,
                                           process_function=lambda data: json.loads(data.decode()),
                                           filename=fname,
                                           sync_time=sync_time,
