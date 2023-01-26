@@ -8,7 +8,7 @@ from googleapiclient.errors import HttpError
 from typing import Callable
 from googleapiclient.http import MediaIoBaseDownload
 from time import time
-from synced import SyncedFile
+from .synced import SyncedFile
 
 class Directory:
     """
