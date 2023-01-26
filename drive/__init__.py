@@ -8,7 +8,7 @@ from googleapiclient.errors import HttpError
 from typing import Callable
 from googleapiclient.http import MediaIoBaseDownload
 from time import time
-from toycommons.drive.synced import SyncedFile
+from synced import SyncedFile
 
 class Directory:
     """
@@ -60,6 +60,7 @@ class DriveConnect:
         self.config = config
         self.__creds = Credentials.from_authorized_user_info(config.drive_token, scopes=self.SCOPES)
         self.__drive = build('drive', 'v3', credentials=self.__creds)
+        self.__docs = build('docs', 'v1', credentials=self.__creds)
         self.directories = {
             None: Directory(self.__drive, name='', fid=self.config.drive_folder_id,
                             cache_time=self.config.drive_config_sync_ttl)
@@ -191,3 +192,15 @@ class DriveConnect:
         return SyncedFile(domain, name, lambda: self.file_by_id(fid), process_function=process_function,
                           filename=filename, sync_time=sync_time, fid=fid, command_queue=command_queue)
 
+    def get_google_doc(self, doc_id):
+        return GoogleDoc(self.__docs.documents().get(documentId=doc_id).execute())
+
+if __name__ == '__main__':
+    from document import GoogleDoc
+    import pickle
+    with open('D:\\Creative\\Code\\willdrug_is_me\\test_gdoc.pcl', 'rb') as f:
+        data = pickle.loads(f.read())
+    from document import StructuralElement
+    g = GoogleDoc(data)
+    with open('C:\\Users\\ctpej\\Documents\\test.html', 'w', encoding='utf-8') as f:
+        f.write(g.as_html())

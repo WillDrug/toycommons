@@ -1,11 +1,11 @@
 from os import getenv
 from pymongo import MongoClient
-from toycommons.storage.config import Config
-from toycommons.drive import DriveConnect
-from toycommons.toydiscover import ToydiscoverAPI
-from toycommons.storage.namevalue import DomainNameValue
-from toycommons.storage.queue_dataclass import QueuedDataClass
-from toycommons.model.command import Command
+from .storage.config import Config
+from .drive import DriveConnect
+from .toydiscover import ToydiscoverAPI
+from .storage.namevalue import DomainNameValue
+from .storage.queue_dataclass import QueuedDataClass
+from .model.command import Command
 import json
 
 
@@ -101,3 +101,4 @@ class ToyInfra:
         if domain is None:
             domain = self.name
         self.__db.cache.delete_many({"domain": domain})
+
