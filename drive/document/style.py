@@ -152,7 +152,7 @@ class TextStyle(Element):
         foreground = ""
         if self.foreground is not None:
             foreground = f'color: {self.foreground.as_css(root)};'
-        td = f'text_decoration: {"underline" if self.underline else ""} {"linethrough" if self.strikethrough else ""};'
+        td = f'text-decoration: {"underline" if self.underline else ""} {"line-through" if self.strikethrough else ""};'
         return f'{"font-style: italic;" if self.italic else ""}' \
                f'{td if self.underline or self.strikethrough else ""}' \
                f'{background}' \

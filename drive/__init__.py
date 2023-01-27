@@ -11,10 +11,12 @@ from time import time
 from .synced import SyncedFile
 from .document import GoogleDoc
 
+
 class Directory:
     """
     Class to store file lists of a GDrive directory, cached.
     """
+
     def __init__(self, service: Resource, name: str, fid: str, cache_time: int):
         """
         :param service: Google Drive Resource object made with build()
@@ -193,15 +195,27 @@ class DriveConnect:
         return SyncedFile(domain, name, lambda: self.file_by_id(fid), process_function=process_function,
                           filename=filename, sync_time=sync_time, fid=fid, command_queue=command_queue)
 
-    def get_google_doc(self, doc_id):
-        return GoogleDoc(self.__docs.documents().get(documentId=doc_id).execute())
+    def get_google_doc(self, doc_id, domain: str = None, get_synced: bool = True, sync_time: int = None,
+                       filename: str = None, use_default_sync: int = False, command_queue: "QueuedDataClass" = None):
+        if not get_synced:
+            return GoogleDoc(self.__docs.documents().get(documentId=doc_id).execute())
+        if use_default_sync:
+            sync_time = self.config.drive_config_sync_ttl
+        if filename is None:
+            filename = f'{doc_id}.gdoc'
+        return SyncedFile(domain, doc_id, lambda: self.__docs.documents().get(documentId=doc_id).execute(),
+                          process_function=lambda gdoc_data: GoogleDoc(gdoc_data), sync_time=sync_time,
+                          filename=filename, command_queue=command_queue)
+
 
 if __name__ == '__main__':
     from document import GoogleDoc
     import pickle
+
     with open('D:\\Creative\\Code\\willdrug_is_me\\test_gdoc.pcl', 'rb') as f:
         data = pickle.loads(f.read())
     from document import StructuralElement
+
     g = GoogleDoc(data)
     with open('C:\\Users\\ctpej\\Documents\\test.html', 'w', encoding='utf-8') as f:
         f.write(g.as_html())

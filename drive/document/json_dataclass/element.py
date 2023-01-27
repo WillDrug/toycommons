@@ -1,9 +1,12 @@
 from .field import Field
 from types import FunctionType
+import json
 
 
 class Element:
     def __init__(self, json_data):
+        if isinstance(json_data, str):
+            json_data = json.loads(json_data)
         self._json_data = json_data
         for attr, attr_data in self._attributes.items():
             if isinstance(attr_data['json_name'], str):
