@@ -62,10 +62,10 @@ class DriveConnect:
         self.__creds = Credentials.from_authorized_user_info(config.drive_token, scopes=self.SCOPES)
         self.__drive = build('drive', 'v3', credentials=self.__creds)
         self.__docs = build('docs', 'v1', credentials=self.__creds)
-        self.directories = {
-            None: Directory(self.__drive, name='', fid=self.config.drive_folder_id,
+        self.directories = {}
+        if self.config.drive_folder_id is not None:
+            self.directories[None] = Directory(self.__drive, name='', fid=self.config.drive_folder_id,
                             cache_time=self.config.drive_config_sync_ttl)
-        }
 
     def __refresh(self):
         """
@@ -151,11 +151,11 @@ class DriveConnect:
         :return: None
         """
         if fid is None:
-            folder = next((q['id'] for q in self.directories[parent].listdir if
-                           q['name'] == name and q['mimeType'] == 'application/vnd.google-apps.folder'), None)
-            if folder is None:  # todo: new file, mimetype = application/vnd.google-apps.folder, create.
+            if parent in self.directories:
+                fid = next((q['id'] for q in self.directories[parent].listdir if
+                            q['name'] == name and q['mimeType'] == 'application/vnd.google-apps.folder'), None)
+            if fid is None:  # todo: new file, mimetype = application/vnd.google-apps.folder, create.
                 raise FileNotFoundError(f'Folder {name} was not found in Drive')
-            fid = folder
         self.directories[name] = Directory(self.__drive, name, fid=fid, cache_time=self.config.drive_config_sync_ttl)
 
     def get_synced_file(self, domain: str, name: str = None, process_function: Callable = lambda data: data.decode(),
