@@ -23,8 +23,8 @@ class DimensionPack(Element):
                 return ''
             return f'{name}: {field.as_css(root)}'
 
-        return f'{get_val(f"{field}-top", self.top)}; {get_val(f"{field}-bottom", self.bottom)}' \
-               f'{get_val(f"{field}-left", self.left)}; {get_val(f"{field}-right", self.right)}'
+        return f'{get_val(f"{field}-top", self.top)}; {get_val(f"{field}-bottom", self.bottom)};' \
+               f'{get_val(f"{field}-left", self.left)}; {get_val(f"{field}-right", self.right)};'
 
 
 class Size(Element):
