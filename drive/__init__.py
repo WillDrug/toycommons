@@ -207,15 +207,3 @@ class DriveConnect:
                           process_function=lambda gdoc_data: GoogleDoc(gdoc_data), sync_time=sync_time,
                           filename=filename, command_queue=command_queue)
 
-
-if __name__ == '__main__':
-    from document import GoogleDoc
-    import pickle
-
-    with open('D:\\Creative\\Code\\willdrug_is_me\\test_gdoc.pcl', 'rb') as f:
-        data = pickle.loads(f.read())
-    from document import StructuralElement
-
-    g = GoogleDoc(data)
-    with open('C:\\Users\\ctpej\\Documents\\test.html', 'w', encoding='utf-8') as f:
-        f.write(g.as_html())
