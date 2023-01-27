@@ -65,7 +65,7 @@ class DriveConnect:
         self.directories = {}
         if self.config.drive_folder_id is not None:
             self.directories[None] = Directory(self.__drive, name='', fid=self.config.drive_folder_id,
-                            cache_time=self.config.drive_config_sync_ttl)
+                                               cache_time=self.config.drive_config_sync_ttl)
 
     def __refresh(self):
         """
