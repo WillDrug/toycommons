@@ -34,7 +34,7 @@ class SyncedFile:
         self.__data = None
         if self.filename is not None:
             try:
-                with open(self.filename, 'r') as f:
+                with open(self.filename, 'rb') as f:
                     self.__data = pickle.loads(f.read())
             except FileNotFoundError as e:
                 pass
