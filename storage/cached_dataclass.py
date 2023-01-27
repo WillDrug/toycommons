@@ -44,7 +44,7 @@ class CachedDataclass:
         :param value: Value of item
         :return: None
         """
-        self.__collection.update_one({'name': key}, {'$set': {'value': value}})
+        self.__collection.update_one({'name': key}, {'$set': {'name': key, 'value': value}}, upsert=True)
 
     def __getattr__(self, item: str):
         """
