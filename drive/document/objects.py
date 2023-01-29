@@ -14,6 +14,7 @@ class CropProperties(Element):
 class ImageProperties(Element):
     content: str = 'contentUri'
     source: str = 'sourceUri'
+    local: str = ''
     brightness: int = 'brightness'
     contrast: int = 'contrast'
     transparency: int = 'transparency'

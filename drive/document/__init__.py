@@ -8,7 +8,8 @@ from .lists import List
 from .paragraph import Paragraph, Heading
 from .table_of_contents import TableOfContents
 from .layout import SectionBreak
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+
 
 
 class StructuralElement(Element):
@@ -60,25 +61,29 @@ class GoogleDoc(Element):
     inline_objects: DictOfElement(InlineOrPositionedObject) = 'inlineObjects'
     positioned_objects: DictOfElement(InlineOrPositionedObject) = 'positionedObjects'
 
+    def get_image_objects(self):
+        image_props = [q for q in self.inline_objects.values()]
+        image_props.extend([q for q in self.positioned_objects.values()])
+        return image_props
 
 @dataclass
 class CSSStructure:
-    outer_div = 'container'
-    table_of_contents = 'table_of_contents'
-    table = "table"
-    table_row = "table-row"
-    table_header = "table-header"
-    table_column = "table-column"
-    section = "section"
-    section_columned = "section-cols"
-    structural_element = 'struct-element'
-    paragraph = 'paragraph'
-    mailto = 'mailto'
-    url = 'url'
-    list = 'list'
-    image = 'img'
-    span = 'span'
-    named_style_tag = {
+    outer_div: str = 'container'
+    table_of_contents: str = 'table_of_contents'
+    table: str = "table"
+    table_row: str = "table-row"
+    table_header: str = "table-header"
+    table_column: str = "table-column"
+    section: str = "section"
+    section_columned: str = "section-cols"
+    structural_element: str = 'struct-element'
+    paragraph: str = 'paragraph'
+    mailto: str = 'mailto'
+    url: str = 'url'
+    list: str = 'list'
+    image: str = 'img'
+    span: str = 'span'
+    named_style_tag: dict = field(default_factory=lambda: {
         'NAMED_STYLE_TYPE_UNSPECIFIED': 'p',
         'NORMAL_TEXT': 'p',
         'TITLE': 'p',
@@ -89,9 +94,9 @@ class CSSStructure:
         'HEADING_4': 'h4',
         'HEADING_5': 'h5',
         'HEADING_6': 'h6'
-    }
-    named_style_tag_default = 'p'
-    named_style_class = {
+    })
+    named_style_tag_default: str = 'p'
+    named_style_class: dict = field(default_factory=lambda: {
         'NAMED_STYLE_TYPE_UNSPECIFIED': '',
         'NORMAL_TEXT': '',
         'TITLE': 'title',
@@ -102,8 +107,8 @@ class CSSStructure:
         'HEADING_4': 'heading',
         'HEADING_5': 'heading',
         'HEADING_6': 'heading'
-    }
-    hr = 'hr_class'
+    })
+    hr: str = 'hr_class'
 
 class HTMLConverter:
     @staticmethod
@@ -120,7 +125,11 @@ class HTMLConverter:
         # layout process!!
         if obj.positioning is not None:
             e_style = obj.positioning.as_css()
-        return f'<img src="{obj.content.properties.source or obj.content.properties.content}" ' \
+        if hasattr(obj.content.properties, 'local'):
+            img_src = obj.content.properties.local
+        else:
+            img_src = obj.content.properties.source or obj.content.properties.content
+        return f'<img src="{img_src}" ' \
                f'class="{self.css_classes.image}" ' \
                f'style="{obj.content.margins.as_css()};' \
                f'{obj.content.size.as_css()};{e_style}" alt="{obj.content.title} : {obj.content.description}">'

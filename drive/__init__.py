@@ -1,10 +1,13 @@
 from __future__ import print_function
 from io import BytesIO
+from os import path
 import json
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build, Resource
 from googleapiclient.errors import HttpError
+import requests
+import shutil
 from typing import Callable
 from googleapiclient.http import MediaIoBaseDownload
 from time import time
@@ -196,7 +199,25 @@ class DriveConnect:
                           filename=filename, sync_time=sync_time, fid=fid, command_queue=command_queue)
 
     def get_google_doc(self, doc_id, domain: str = None, get_synced: bool = True, sync_time: int = None,
-                       filename: str = None, use_default_sync: bool = False, command_queue: "QueuedDataClass" = None):
+                       filename: str = None, use_default_sync: bool = False, command_queue: "QueuedDataClass" = None,
+                       cache_images: bool = True, image_folder='', uri_prepend=''):
+        def process(data):
+            g = GoogleDoc(data)  # process is download, download is sync so cache images = set "local" prop, always.
+            if cache_images:
+                for img in g.get_image_objects():
+                    uri = img.content.content.properties.source or img.content.content.properties.content
+                    img_filename = f'{filename}{img.object_id}'
+                    img_path = path.join(image_folder, img_filename)
+                    if uri is None:
+                        continue
+                    rs = requests.get(uri, stream=True)
+                    if rs.status_code == 200:
+                        with open(img_path, 'wb') as f:
+                            rs.raw.decode_content = True
+                            shutil.copyfileobj(rs.raw, f)
+                        img.content.content.properties.local = f'{uri_prepend}{img_filename}'
+
+            return g
         if not get_synced:
             return GoogleDoc(self.__docs.documents().get(documentId=doc_id).execute())
         if use_default_sync:
@@ -204,6 +225,5 @@ class DriveConnect:
         if filename is None:
             filename = f'{doc_id}.gdoc'
         return SyncedFile(domain, doc_id, lambda: self.__docs.documents().get(documentId=doc_id).execute(),
-                          process_function=lambda gdoc_data: GoogleDoc(gdoc_data), sync_time=sync_time,
+                          process_function=process, sync_time=sync_time,
                           filename=filename, command_queue=command_queue)
-
