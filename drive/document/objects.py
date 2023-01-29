@@ -33,9 +33,20 @@ class EmbeddedObject(Element):
 class Positioning(Element):
     left: Dimension = 'leftOffset'
     top: Dimension = 'topOffset'
+    layout: str = 'layout'
 
     def as_css(self):
-        return f'position: relative; top: {self.top.as_css() or "0px"}; left: {self.left.as_css() or "0px"}'
+        layout = {
+            'WRAP_TEXT': 'float: left;',
+            'BREAK_LEFT': 'float: left; clear: left;',
+            'BREAK_RIGHT': 'float: right; clear: right;',
+            'IN_FRONT_OF_TEXT': 'position: absolute;',
+            'BEHIND_TEXT': 'position: absolute;'
+        }
+        css = layout.get(self.layout, '')
+        if 'position' not in css:
+            css += 'position: relative;'
+        return css+f'top: {self.top.as_css() or "0px"}; left: {self.left.as_css() or "0px"}'
 
 class ObjectProperties(Element):
     content: EmbeddedObject = 'embeddedObject'

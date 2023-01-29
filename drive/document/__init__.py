@@ -117,6 +117,7 @@ class HTMLConverter:
         if obj.content.title == 'horizontal line':
             return f'<hr class="{self.css_classes.hr}">'
         e_style = ''
+        # layout process!!
         if obj.positioning is not None:
             e_style = obj.positioning.as_css()
         return f'<img src="{obj.content.properties.source or obj.content.properties.content}" ' \
@@ -221,6 +222,9 @@ class HTMLConverter:
 
         tag = self.css_classes.named_style_tag.get(elem.style.named_style, self.css_classes.named_style_tag_default)
         extra_cls = self.css_classes.named_style_class.get(elem.style.named_style, '')
+        named_style = next((q for q in self.doc.named_styles if q.style_type == elem.style.named_style), None)
+        if named_style is not None:
+            style.update(named_style.paragraph_style.as_css_dict())
 
         # object processing
         objs_data = ''
@@ -238,14 +242,19 @@ class HTMLConverter:
             data.format(f'<{lst_tag} class="{self.css_classes.list}" '
                         f'style="{self.style_dict_to_string(l_style)}">' + '{}' + f'</{lst_tag}>')
 
-        content = '\n'.join([self.process_paragraph_element(q) for q in elem.content])
+        content = '\n'.join([
+            self.process_paragraph_element(
+                q,
+                extra_style=None if named_style is None else named_style.text_style.as_css_dict()
+            )
+            for q in elem.content])
 
         return data.format(content)
 
-    def process_paragraph_element(self, elem):
+    def process_paragraph_element(self, elem, extra_style=None):
         # fixme change debug strings to something
         if elem.text_run is not None:
-            return self.process_text_run(elem.text_run)
+            return self.process_text_run(elem.text_run, extra_style=extra_style)
         if elem.auto_text is not None:  # no page numbers!
             return ''
         if elem.page_break is not None:  # no pages!
@@ -271,7 +280,11 @@ class HTMLConverter:
             return f'<a href="{uri}" class="{self.css_classes.url}">{title}</a>'
         return 'NOTHING IS REAL'
 
-    def process_text_run(self, elem):
-        style_text = self.style_dict_to_string(elem.style.as_css_dict())
+    def process_text_run(self, elem, extra_style=None):
+        style = {}
+        if extra_style is not None:
+            style = extra_style
+        style.update(elem.style.as_css_dict())
+        style_text = self.style_dict_to_string(style)
         return f'<span class="{self.css_classes.span}" style="{style_text}">{elem.content}</span>'
 

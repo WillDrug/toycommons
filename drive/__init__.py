@@ -196,7 +196,7 @@ class DriveConnect:
                           filename=filename, sync_time=sync_time, fid=fid, command_queue=command_queue)
 
     def get_google_doc(self, doc_id, domain: str = None, get_synced: bool = True, sync_time: int = None,
-                       filename: str = None, use_default_sync: int = False, command_queue: "QueuedDataClass" = None):
+                       filename: str = None, use_default_sync: bool = False, command_queue: "QueuedDataClass" = None):
         if not get_synced:
             return GoogleDoc(self.__docs.documents().get(documentId=doc_id).execute())
         if use_default_sync:
