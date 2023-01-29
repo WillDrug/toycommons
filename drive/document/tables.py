@@ -10,13 +10,18 @@ class ColumnProperties(Element):
     def as_css(self, root):
         return f"width: {self.width.as_css(root)}"
 
+    def as_css_dict(self):
+        return {'width': self.width.as_css()}
+
+
 class TableRowStyle(Element):
     min_height: Dimension = 'minRowHeight'
     header: bool = 'tableHeader'
     prevent_overflow: bool = 'preventOverflow'
 
-    def as_css(self, root):
-        return f"min-height: {self.min_height.as_css(root)}"
+    def as_css_dict(self):
+        return {'min-height': self.min_height.as_css()}
+
 
 
 class TableCellStyle(Element):
@@ -30,12 +35,35 @@ class TableCellStyle(Element):
     paddings: DimensionPack = PackField(('paddingTop', 'paddingBottom', 'paddingLeft', 'paddingRight'))
     content_align: str = 'contentAlignment'  # ENUM
 
-    def as_css(self, root):
-        return f'background: {self.background.as_css(root)}; border-left: {self.border_left.as_css(root)};' \
-               f'border-right: {self.border_right.as_css(root)}; border-top: {self.border_top.as_css(root)};' \
-               f'border-bottom: {self.border_bottom.as_css(root)}; ' \
-               f'padding: {self.paddings.as_css(root, field="padding")};' \
-               f'content-align: {self.content_align}'
+    def as_css_dict(self):
+        out = {}
+        if self.border_left is not None:
+            out.update(self.border_left.as_css_dict('left') or {})
+        if self.border_top is not None:
+            out.update(self.border_left.as_css_dict('top') or {})
+        if self.border_right is not None:
+            out.update(self.border_left.as_css_dict('right') or {})
+        if self.border_bottom is not None:
+            out.update(self.border_left.as_css_dict('bottom') or {})
+        if self.paddings is not None:
+            out.update(self.paddings.as_css_dict('padding') or {})
+        if self.content_align in ['TOP', 'MIDDLE', 'BOTTOM']:
+            out['vertical-align'] = {'TOP': 'top', 'MIDDLE': 'middle', 'BOTTOM': 'bottom'}.get(self.content_align)
+        return out
+
+    def as_css(self):
+        def add_field(field, value):
+            if value is None:
+                return ''
+            else:
+                return f'{field}: {value};'
+
+        return f'{add_field("background", self.background.as_css())}' \
+               f'{add_field("border-left", self.border_left.as_css(side="left"))}' \
+               f'{add_field("border-right", self.border_right.as_css(side="right"))}' \
+               f'{add_field("border-top", self.border_top.as_css(side="top"))}' \
+               f'{add_field("border-bottom", self.border_bottom.as_css(side="bottom"))}' \
+               f'{add_field("padding", self.paddings.as_css())}'
 
 
 class TableCell(Element, Suggested):
@@ -44,10 +72,6 @@ class TableCell(Element, Suggested):
     style: TableCellStyle = 'tableCellStyle'
     content: ListOfElement(BackReference('StructuralElement')) = 'content'
 
-    def as_html(self, root, style: ColumnProperties):
-        data = "\n".join([q.as_html(root) for q in self.content])
-        return f'<td style="{style.as_css(root)}"><div style="{self.style.as_css(root)}">{data}</div></td>'
-
 
 class TableRow(Element, Suggested):
     start: int = Field('startIndex', default=0)
@@ -55,18 +79,9 @@ class TableRow(Element, Suggested):
     style: TableRowStyle = 'tableRowStyle'
     content: ListOfElement(TableCell) = 'tableCells'
 
-    def as_html(self, root, col_styles: list[ColumnProperties]):
-        data = "\n".join([q.as_html(root, col_styles[i]) for i, q in enumerate(self.content)])
-        return f'<{"th" if self.style.header else "tr"} style="{self.style.as_css(root)}">' \
-               f'{data}</{"th" if self.style.header else "tr"}>'
-
 
 class Table(Element, Suggested):
     rows: int = 'rows'
     columns: int = 'columns'
     style: ListOfElement(ColumnProperties) = 'tableStyle.tableColumnProperties'
     content: ListOfElement(TableRow) = 'tableRows'
-
-    def as_html(self, root):
-        data = "\n".join([q.as_html(root, self.style) for q in self.content])
-        return f'<table>{data}</table>'

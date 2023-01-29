@@ -5,37 +5,54 @@ class Dimension(Element):
     magnitude: int = 'magnitude'
     unit: str = 'unit'
 
-    def as_css(self, root):
+    def as_css(self):
         if self.magnitude is None:
             return ''
         return f'{self.magnitude}{self.unit}'
 
 
 class DimensionPack(Element):
-    top: Dimension = Field('marginTop', alt_names=('paddingTop', 'topOffset'))
-    left: Dimension = Field('marginLeft', alt_names=('paddingLeft', 'leftOffset'))
+    top: Dimension = Field('marginTop', alt_names=('paddingTop', 'positioning.topOffset'))
+    left: Dimension = Field('marginLeft', alt_names=('paddingLeft', 'positioning.leftOffset'))
     bottom: Dimension = Field('marginBottom', alt_names=('paddingBottom',))
     right: Dimension = Field('marginRight', alt_names=('paddingRight',))
 
-    def as_css(self, root, field="margin"):
-        def get_val(name, field):
-            if field is None or field.as_css(root) == '':
-                return ''
-            return f'{name}: {field.as_css(root)}'
+    def as_css_dict(self, field="margin"):
+        out = {}
+        if self.top is not None and self.top.as_css() is not None:
+            out[f'{field}-top'] = self.top.as_css()
+        if self.bottom is not None and self.bottom.as_css() is not None:
+            out[f'{field}-bottom'] = self.bottom.as_css()
+        if self.right is not None and self.right.as_css() is not None:
+            out[f'{field}-right'] = self.right.as_css()
+        if self.left is not None and self.left.as_css() is not None:
+            out[f'{field}-left'] = self.left.as_css()
+        return out
 
-        return f'{get_val(f"{field}-top", self.top)}; {get_val(f"{field}-bottom", self.bottom)};' \
-               f'{get_val(f"{field}-left", self.left)}; {get_val(f"{field}-right", self.right)};'
+    def as_css(self, field="margin"):
+        def get_val(name, i_field):
+            if i_field is None or i_field.as_css() is None or i_field.as_css() == '':
+                return ''
+            return f'{name}: {i_field.as_css()};'
+
+        return f'{get_val(f"{field}-top", self.top)} {get_val(f"{field}-bottom", self.bottom)}' \
+               f'{get_val(f"{field}-left", self.left)} {get_val(f"{field}-right", self.right)}'
 
 
 class Size(Element):
     height: Dimension = 'height'
     width: Dimension = 'width'
 
+    def as_css(self):
+        h = '' if self.height is None or self.height.as_css() is None else f'height: {self.height.as_css()}'
+        w = '' if self.width is None or self.width.as_css() is None else f'width: {self.width.as_css()}'
+        return f'{h};{w}'
+
 
 class Color(Element):
     color: dict = Field('rgbColor', alt_names=('color.rgbColor',))
 
-    def as_css(self, root):
+    def as_css(self):
         def to_hex(val: float):
             i_val = val * 256  # 256 to balance the curve of float values evenly
             if i_val == 256:
@@ -43,7 +60,7 @@ class Color(Element):
             return hex(int(i_val))[2:].zfill(2).upper()
 
         if self.color is None:
-            return 'inherit'
+            return None
 
         return f'#{to_hex(self.color.get("red", 0))}' \
                f'{to_hex(self.color.get("green", 0))}' \
@@ -71,16 +88,55 @@ class Border(Element):  # represents Border and ParagraphBorder
     padding: Dimension = 'padding'  # only for paragraphs
     prop_state: str = 'propertyState'  # enum for embedded
 
-    def as_css(self, root):
-        return f'{self.dash.lower()} {self.width.as_css(root)} {self.color.as_css(root)}'
+    def get_dash(self):
+        return {
+            'DOT': 'dotted',
+            'DASH': 'dashed',
+        }.get(self.dash, 'solid')
+
+    def as_css_dict(self, side=None):
+        if self.width is None or self.width.magnitude is None:
+            return None
+        pretag = 'border' if side is None else f'border-{side}'
+        out = {
+            f'{pretag}-width': Dimension({'magnitude': 1, 'unit': 'px'}).as_css()
+            if self.width is None else self.width.as_css(),
+            f'{pretag}-style': self.get_dash()
+        }
+        if self.color is not None and self.color.as_css() is not None:
+            out[f'{pretag}-color'] = self.color.as_css()
+        return out
+
+    def as_css(self, side=None):
+        width = self.width
+        if width is None or width.magnitude is None:  # fixme: may be return None here?
+            return None
+        dash = self.dash
+        if dash == 'DOT':
+            dash = 'dotted'
+        elif dash == 'DASH':
+            dash = 'dashed'
+        else:  # dash == 'DASH_STYLE_UNSPECIFIED' or dash == 'SOLID':
+            dash = 'solid'
+        color = self.color.as_css()
+        pretag = 'border' if side is None else f'border-{side}'
+
+        output = f'{pretag}-style: {dash}; {pretag}-width: {width}'
+        if color is not None:
+            output += f'; {pretag}-color: {color}'
+
+        return output
 
 
 class Font(Element):
     font_family: str = 'fontFamily'
     weight: int = 'weight'
 
-    def as_css(self, root):
-        return f'font-family: {self.font_family}; font-weight: {self.weight};'
+    def as_css_dict(self):
+        return {
+            'font-family': self.font_family,
+            'font-weight': self.weight
+        }
 
 
 class ParagraphStyle(Element):
@@ -112,18 +168,34 @@ class ParagraphStyle(Element):
         The ParagraphStyle on a Paragraph element that's contained in a table may inherit its paragraph style from the table style.
     """
 
-    def as_css(self, root):
-        base_style = ''
+    def as_css_dict(self):
+        output = {}
+        if self.space_above:
+            output['margin-top'] = self.space_above.as_css()
+        if self.space_below:
+            output['margin-bottom'] = self.space_below.as_css()
+        if self.border_top:
+            output.update(self.border_top.as_css_dict('top') or {})
+        if self.border_right:
+            output.update(self.border_top.as_css_dict('right') or {})
+        if self.border_bottom:
+            output.update(self.border_top.as_css_dict('bottom') or {})
+        if self.border_left:
+            output.update(self.border_top.as_css_dict('left') or {})
+        if self.shading is not None and self.shading.as_css() is not None:
+            output['background'] = self.shading.as_css()
+        if self.line_spacing is not None:
+            output['line-height'] = f'{self.line_spacing}%'
+        alignment = {
+            'START': 'left',
+            'CENTER': 'center',
+            'END': 'right',
+            'JUSTIFIED': 'justified'
+        }
+        output['text-align'] = alignment.get(self.alignment, 'inherit')
 
-        def get_value(name, field):
-            if field is None:
-                return ""
-            else:
-                return f"{name}: {field.as_css(root)};"
-        local_style = f"{get_value('margin-top', self.space_above)}{get_value('margin-bottom', self.space_below)}" \
-                      f"{get_value('border-top', self.border_top)}{get_value('border-bottom', self.border_bottom)}" \
-                      f"{get_value('border-left', self.border_left)}{get_value('border-right', self.border_right)}"
-        return base_style + local_style
+        return output
+
 
 
 class Link(Element):
@@ -145,20 +217,24 @@ class TextStyle(Element):
     baseline_offset: str = 'baselineOffset'  # ENUM
     link: Link = 'link'
 
-    def as_css(self, root):
-        background = ""
-        if self.background is not None:
-            background = f'background: {self.background.as_css(root)};'
-        foreground = ""
-        if self.foreground is not None:
-            foreground = f'color: {self.foreground.as_css(root)};'
-        td = f'text-decoration: {"underline" if self.underline else ""} {"line-through" if self.strikethrough else ""};'
-        return f'{"font-style: italic;" if self.italic else ""}' \
-               f'{td if self.underline or self.strikethrough else ""}' \
-               f'{background}' \
-               f'{foreground}' \
-               f'{"" if self.weighted_font_family is None else self.weighted_font_family.as_css(root)}' \
-               f'{"font-weight: bold;" if self.bold else ""}'
+    def as_css_dict(self):
+        out = {}
+        if self.background is not None and self.background.as_css() is not None:
+            out['background'] = self.background.as_css()
+        if self.foreground is not None and self.foreground.as_css() is not None:
+            out['color'] = self.foreground.as_css()
+        if self.strikethrough or self.underline:
+            out['text-decoration'] = ''
+        if self.underline:
+            out['text-decoration'] = 'underline'
+        if self.strikethrough:
+            out['text-decoration'] += ' line-through'
+        if self.weighted_font_family is not None:
+            out.update(self.weighted_font_family.as_css_dict())
+        if self.bold:
+            out['font-weight'] = 'bold'
+        return out
+
 
 
 class NamedStyle(Element):

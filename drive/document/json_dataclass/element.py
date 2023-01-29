@@ -25,6 +25,7 @@ class Element:
                 }
             for cls in self.__class__.mro() for attr in cls.__dict__.keys()
             if not attr.startswith('_') and not isinstance(cls.__dict__[attr], FunctionType)
+               and not isinstance(cls.__dict__[attr], property)
         }
 
     def _process(self, attr, datatype, value):
