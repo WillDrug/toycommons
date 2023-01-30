@@ -62,8 +62,11 @@ class GoogleDoc(Element):
     positioned_objects: DictOfElement(InlineOrPositionedObject) = 'positionedObjects'
 
     def get_image_objects(self):
-        image_props = [q for q in self.inline_objects.values()]
-        image_props.extend([q for q in self.positioned_objects.values()])
+        image_props = []
+        if self.inline_objects is not None:
+            image_props.extend([q for q in self.inline_objects.values()])
+        if self.positioned_objects is not None:
+            image_props.extend([q for q in self.positioned_objects.values()])
         return image_props
 
 @dataclass

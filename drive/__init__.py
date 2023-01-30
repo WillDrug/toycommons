@@ -40,9 +40,14 @@ class Directory:
         :return: List of files within the folder in GDrive format.
         """
         if self.__last_cached - time() < -self.__cache_time:
-            self.__cache = self.__service.files().list(q=f"'{self.fid}' in parents").execute()['files']
+            self.__cache = self.__service.files().list(q=f"'{self.fid}' in parents",
+                                                       fields="files(id, name, description, mimeType)")\
+                .execute()['files']
             self.__last_cached = time()
         return self.__cache
+
+    def clear_cache(self):
+        self.__last_cached = 0
 
 
 class AuthException(Exception):
@@ -53,6 +58,8 @@ class AuthException(Exception):
 
 
 class DriveConnect:
+    FOLDER_TYPE = 'application/vnd.google-apps.folder'
+    GDOC_TYPE = 'application/vnd.google-apps.document'
     """
     Class to proxy Google API calls to better suit app-building.
     """
@@ -158,7 +165,7 @@ class DriveConnect:
         if fid is None:
             if parent in self.directories:
                 fid = next((q['id'] for q in self.directories[parent].listdir if
-                            q['name'] == name and q['mimeType'] == 'application/vnd.google-apps.folder'), None)
+                            q['name'] == name and q['mimeType'] == self.FOLDER_TYPE), None)
             if fid is None:  # todo: new file, mimetype = application/vnd.google-apps.folder, create.
                 raise FileNotFoundError(f'Folder {name} was not found in Drive')
         self.directories[name] = Directory(self.__drive, name, fid=fid, cache_time=self.config.drive_config_sync_ttl)
@@ -198,7 +205,7 @@ class DriveConnect:
         return SyncedFile(domain, name, lambda: self.file_by_id(fid), process_function=process_function,
                           filename=filename, sync_time=sync_time, fid=fid, command_queue=command_queue)
 
-    def get_google_doc(self, doc_id, domain: str = None, get_synced: bool = True, sync_time: int = None,
+    def get_google_doc(self, codename, doc_id, domain: str = None, get_synced: bool = True, sync_time: int = None,
                        filename: str = None, use_default_sync: bool = False, command_queue: "QueuedDataClass" = None,
                        cache_images: bool = True, image_folder='', uri_prepend=''):
         def process(data):
@@ -224,6 +231,9 @@ class DriveConnect:
             sync_time = self.config.drive_config_sync_ttl
         if filename is None:
             filename = f'{doc_id}.gdoc'
-        return SyncedFile(domain, doc_id, lambda: self.__docs.documents().get(documentId=doc_id).execute(),
-                          process_function=process, sync_time=sync_time,
+        return SyncedFile(domain, codename, lambda: self.__docs.documents().get(documentId=doc_id).execute(),
+                          process_function=process, sync_time=sync_time, fid=doc_id,
                           filename=filename, command_queue=command_queue)
+
+    def list_google_docs(self, folder=None):
+        return [q for q in self.directories.get(folder).listdir if q['mimeType'] == self.GDOC_TYPE]

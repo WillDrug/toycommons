@@ -36,5 +36,10 @@ class SyncCommand(Command):
     file: str = None
     file_id: str = None
 
+@dataclass
+class RecacheCommand(Command):
+    action: str = 'recache'
+
+
 if __name__ == '__main__':
     print(Command.all_fields())
