@@ -69,6 +69,40 @@ class GoogleDoc(Element):
             image_props.extend([q for q in self.positioned_objects.values()])
         return image_props
 
+class ListWrapper:
+    glyph_equivalence = {
+        'GLYPH_TYPE_UNSPECIFIED': ('disc', 'ul'),
+        'NONE': ('disc', 'ul'),
+        'DECIMAL': ('decimal', 'ol'),
+        'ZERO_DECIMAL': ('decimal-leading-zero', 'ol'),
+        'UPPER_ALPHA': ('upper-alpha', 'ol'),
+        'ALPHA': ('lower-alpha', 'ol'),
+        'UPPER_ROMAN': ('upper-roman', 'ol'),
+        'ROMAN': ('lower-roman', 'ol')
+    }
+
+    def __init__(self, lists: dict, bullet: "Bullet"):
+        self.list_id = bullet.list_id
+        self.level = bullet.nesting_level or 0
+        self.local_style = bullet.text_style
+        list_ref = lists.get(self.list_id).nesting_levels[self.level]
+        style_type, self.lst_tag = self.glyph_equivalence.get(list_ref.glyph, (list_ref.glyph, 'ul'))
+        self.style_type = f'list-style-type: {style_type}'
+        self.processing = False
+
+    def tag(self):
+        return self.glyph_equivalence.get(self.list_ref.glyph, (None, 'ul'))[1]
+
+    def opening_tag(self, css_class):
+        self.processing = True
+        return f'<{self.lst_tag} class="{css_class}" style="{self.style_type}">'
+
+    def closing_tag(self):
+        return f'</{self.lst_tag}>'
+
+    def __eq__(self, other):
+        return self.list_id == other.list_id and self.level == other.level
+
 @dataclass
 class CSSStructure:
     outer_div: str = 'container'
@@ -128,10 +162,11 @@ class HTMLConverter:
         # layout process!!
         if obj.positioning is not None:
             e_style = obj.positioning.as_css()
-        if hasattr(obj.content.properties, 'local'):
+        if hasattr(obj.content.properties, 'local') and obj.content.properties.local is not None:
             img_src = obj.content.properties.local
         else:
             img_src = obj.content.properties.source or obj.content.properties.content
+
         return f'<img src="{img_src}" ' \
                f'class="{self.css_classes.image}" ' \
                f'style="{obj.content.margins.as_css()};' \
@@ -171,13 +206,54 @@ class HTMLConverter:
                 cols_style = f'column-count: {cols.__len__()};'
 
             data += f'<div class="{classes}" style="{cols_style}{style}">'
+            list_stack = []
             for elem in sections[section_num]:
-                data += f'<div class="{self.css_classes.structural_element}" ' \
-                        f'style="{self.style_dict_to_string(style_override)}">' + \
-                        self.process_structural_element(elem) + '</div>'
+                if elem.content_class is Paragraph:
+                    if elem.content.bullet is not None:  # fixme this is horrifying
+                        if list_stack.__len__() == 0:  # first list in a bunch, enclose in div
+                            data += f'<div class="{self.css_classes.structural_element}" ' \
+                                    f'style="{self.style_dict_to_string(style_override)}">'
+                        wrapper = ListWrapper(self.doc.lists, elem.content.bullet)
+                        if wrapper in list_stack: # we know this list + level
+                            while list_stack.__len__() > 0 and \
+                                    list_stack[-1] != wrapper:
+                                # close previous lists up to running one
+                                curlist = list_stack.pop()
+                                data += curlist.closing_tag()
+                        elif list_stack.__len__() > 0:  #
+                            while list_stack.__len__() > 0 and list_stack[-1].list_id != wrapper.list_id:
+                                # there are other lists, we're closing them up to current list id
+                                curlist = list_stack.pop()
+                                data += curlist.closing_tag()
+                        if list_stack.__len__() == 0 or list_stack[-1] != wrapper:
+                            list_stack.append(wrapper)
+
+
+                    if list_stack.__len__() > 0 and elem.content.bullet is None:
+                        while list_stack.__len__() > 0:
+                            curlist = list_stack.pop()
+                            data += curlist.closing_tag()
+                        data += '</div>'
+
+                    if list_stack.__len__() == 0:
+                        data += f'<div class="{self.css_classes.structural_element}" ' \
+                                f'style="{self.style_dict_to_string(style_override)}">' + \
+                                self.process_structural_element(elem) + '</div>'
+                    else:
+                        if list_stack.__len__() == 0:
+                            raise ValueError(f'You screwed lists up!')
+                        if not list_stack[-1].processing:
+                            data += list_stack[-1].opening_tag(self.css_classes.list)
+                        data += '<li>' + self.process_structural_element(elem) + '</li>'
+                else:
+                    data += f'<div class="{self.css_classes.structural_element}" ' \
+                            f'style="{self.style_dict_to_string(style_override)}">' + \
+                            self.process_structural_element(elem) + '</div>'
+
             data += '</div>'
 
         return f'<div class="{self.css_classes.outer_div}">{data}</div>'
+
 
     def process_structural_element(self, elem: StructuralElement):
         if elem.content_class is TableOfContents:
@@ -201,7 +277,10 @@ class HTMLConverter:
                        f'{columns_data}</{tag}>'
             rows.append(row_data)
         data = '\n'.join(rows)
-        return f'<table class={self.css_classes.table}">{data}</table>'
+
+        width = 'width: 100%;' if any([q.width_type == 'EVENLY_DISTRIBUTED' for q in column_styles]) else ''
+        return f'<table style="border-collapse: collapse; max-width: 100%; {width}" ' \
+               f'class={self.css_classes.table}">{data}</table>'
 
     def process_row(self, columns, styles: list):
         """ Style has "width_type" containing:
@@ -213,27 +292,17 @@ class HTMLConverter:
         for i, col in enumerate(columns):
             idata = [self.process_structural_element(q) for q in col.content]
             idata = '\n'.join(idata)
-            istyle = styles[i].as_css_dict()
+            istyle = styles[i].as_css_dict(col_num=columns.__len__())
             istyle.update(col.style.as_css_dict())
             data.append(f'<td class="{self.css_classes.table_column}" '
                         f'style="{self.style_dict_to_string(istyle)}">{idata}</td>')
         return '\n'.join(data)
 
     def process_paragraph(self, elem):
-        glyph_equivalence = {
-            'GLYPH_TYPE_UNSPECIFIED': ('disc', 'ul'),
-            'NONE': ('disc', 'ul'),
-            'DECIMAL': ('decimal', 'ol'),
-            'ZERO_DECIMAL': ('decimal-leading-zero', 'ol'),
-            'UPPER_ALPHA': ('upper-alpha', 'ol'),
-            'ALPHA': ('lower-alpha', 'ol'),
-            'UPPER_ROMAN': ('upper-roman', 'ol'),
-            'ROMAN': ('lower-roman', 'ol')
-        }
         style = elem.style.as_css_dict()
 
         tag = self.css_classes.named_style_tag.get(elem.style.named_style, self.css_classes.named_style_tag_default)
-        extra_cls = self.css_classes.named_style_class.get(elem.style.named_style, '')
+        css_cls = self.css_classes.named_style_class.get(elem.style.named_style, self.css_classes.paragraph)
         named_style = next((q for q in self.doc.named_styles if q.style_type == elem.style.named_style), None)
         if named_style is not None:
             style.update(named_style.paragraph_style.as_css_dict())
@@ -243,16 +312,11 @@ class HTMLConverter:
         if elem.positioned_object_ids is not None:
             objs = [self.doc.positioned_objects.get(q) for q in elem.positioned_object_ids]
             objs_data = '\n'.join([self.process_object(q) for q in objs])
-
-        data = f'<{tag} class="{self.css_classes.paragraph} {extra_cls}" ' \
+        extra = ''
+        if elem.style.heading is not None:
+            extra += f'id="{elem.style.heading}"'
+        data = f'<{tag} class="{css_cls}" {extra}' \
                f'style="{self.style_dict_to_string(style)}">' + objs_data + '{}' + f'</{tag}>'
-        if elem.bullet is not None:
-            current_list = self.doc.lists.get(elem.bullet.list_id)
-            level = current_list.nesting_levels[elem.bullet.nesting_level]
-            l_style = {}
-            l_style['list-style-type'], lst_tag = glyph_equivalence.get(level.glyph, (level.glyph, 'ul'))
-            data.format(f'<{lst_tag} class="{self.css_classes.list}" '
-                        f'style="{self.style_dict_to_string(l_style)}">' + '{}' + f'</{lst_tag}>')
 
         content = '\n'.join([
             self.process_paragraph_element(
@@ -293,10 +357,17 @@ class HTMLConverter:
         return 'NOTHING IS REAL'
 
     def process_text_run(self, elem, extra_style=None):
+        if elem.style.link is not None:
+            tag = 'a'
+            link = elem.style.link.url or f'#{elem.style.link.heading_id}'
+            extra = f' href="{link}"'
+        else:
+            tag = 'span'
+            extra = ''
         style = {}
         if extra_style is not None:
             style = extra_style
         style.update(elem.style.as_css_dict())
         style_text = self.style_dict_to_string(style)
-        return f'<span class="{self.css_classes.span}" style="{style_text}">{elem.content}</span>'
+        return f'<{tag} {extra} class="{self.css_classes.span}" style="{style_text}">{elem.content}</{tag}>'
 

@@ -95,12 +95,12 @@ class Border(Element):  # represents Border and ParagraphBorder
         }.get(self.dash, 'solid')
 
     def as_css_dict(self, side=None):
-        if self.width is None or self.width.magnitude is None:
+        width = self.width
+        if width is None or width.magnitude is None:
             return None
         pretag = 'border' if side is None else f'border-{side}'
         out = {
-            f'{pretag}-width': Dimension({'magnitude': 1, 'unit': 'px'}).as_css()
-            if self.width is None else self.width.as_css(),
+            f'{pretag}-width': width.as_css(),
             f'{pretag}-style': self.get_dash()
         }
         if self.color is not None and self.color.as_css() is not None:
@@ -109,7 +109,9 @@ class Border(Element):  # represents Border and ParagraphBorder
 
     def as_css(self, side=None):
         width = self.width
-        if width is None or width.magnitude is None:  # fixme: may be return None here?
+        if width is None:
+            return None
+        if width.magnitude is None:
             return None
         dash = self.dash
         if dash == 'DOT':
@@ -121,7 +123,7 @@ class Border(Element):  # represents Border and ParagraphBorder
         color = self.color.as_css()
         pretag = 'border' if side is None else f'border-{side}'
 
-        output = f'{pretag}-style: {dash}; {pretag}-width: {width}'
+        output = f'{pretag}-style: {dash}; {pretag}-width: {width.as_css()}'
         if color is not None:
             output += f'; {pretag}-color: {color}'
 
@@ -177,11 +179,11 @@ class ParagraphStyle(Element):
         if self.border_top:
             output.update(self.border_top.as_css_dict('top') or {})
         if self.border_right:
-            output.update(self.border_top.as_css_dict('right') or {})
+            output.update(self.border_right.as_css_dict('right') or {})
         if self.border_bottom:
-            output.update(self.border_top.as_css_dict('bottom') or {})
+            output.update(self.border_bottom.as_css_dict('bottom') or {})
         if self.border_left:
-            output.update(self.border_top.as_css_dict('left') or {})
+            output.update(self.border_left.as_css_dict('left') or {})
         if self.shading is not None and self.shading.as_css() is not None:
             output['background'] = self.shading.as_css()
         if self.line_spacing is not None:

@@ -1,16 +1,18 @@
 from .json_dataclass import ListOfElement, Element, PackField, Field, BackReference
 from .attr_mixins import Suggested
 from .style import Dimension, Color, Border, DimensionPack
+from math import floor
 
 
 class ColumnProperties(Element):
     width_type: str = 'widthType'  # ENUM
     width: Dimension = 'width'
 
-    def as_css(self, root):
-        return f"width: {self.width.as_css(root)}"
-
-    def as_css_dict(self):
+    def as_css_dict(self, col_num=None):
+        if self.width_type == 'EVENLY_DISTRIBUTED' and col_num is not None:
+            return {'width': f'{floor(100/col_num)}%'}
+        if self.width is None or self.width.as_css() is None:
+            return {}
         return {'width': self.width.as_css()}
 
 
@@ -21,7 +23,6 @@ class TableRowStyle(Element):
 
     def as_css_dict(self):
         return {'min-height': self.min_height.as_css()}
-
 
 
 class TableCellStyle(Element):
@@ -36,34 +37,27 @@ class TableCellStyle(Element):
     content_align: str = 'contentAlignment'  # ENUM
 
     def as_css_dict(self):
-        out = {}
-        if self.border_left is not None:
-            out.update(self.border_left.as_css_dict('left') or {})
-        if self.border_top is not None:
-            out.update(self.border_left.as_css_dict('top') or {})
-        if self.border_right is not None:
-            out.update(self.border_left.as_css_dict('right') or {})
-        if self.border_bottom is not None:
-            out.update(self.border_left.as_css_dict('bottom') or {})
+        out = {}  # fixme: table alignment-spanning
+
+        def update_border(field, side):
+            nonlocal out
+            if field is None:  # default border
+                out.update(Border({'width': {'magnitude': 1, 'unit': 'PT'}}).as_css_dict(side))
+            else:
+                out.update(field.as_css_dict(side) or {})
+
+        update_border(self.border_right, 'right')
+        update_border(self.border_left, 'left')
+        update_border(self.border_top, 'top')
+        update_border(self.border_bottom, 'bottom')
+
         if self.paddings is not None:
             out.update(self.paddings.as_css_dict('padding') or {})
         if self.content_align in ['TOP', 'MIDDLE', 'BOTTOM']:
             out['vertical-align'] = {'TOP': 'top', 'MIDDLE': 'middle', 'BOTTOM': 'bottom'}.get(self.content_align)
+        if self.background is not None:
+            out['background'] = self.background.as_css()
         return out
-
-    def as_css(self):
-        def add_field(field, value):
-            if value is None:
-                return ''
-            else:
-                return f'{field}: {value};'
-
-        return f'{add_field("background", self.background.as_css())}' \
-               f'{add_field("border-left", self.border_left.as_css(side="left"))}' \
-               f'{add_field("border-right", self.border_right.as_css(side="right"))}' \
-               f'{add_field("border-top", self.border_top.as_css(side="top"))}' \
-               f'{add_field("border-bottom", self.border_bottom.as_css(side="bottom"))}' \
-               f'{add_field("padding", self.paddings.as_css())}'
 
 
 class TableCell(Element, Suggested):
