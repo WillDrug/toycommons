@@ -1,7 +1,7 @@
 from typing import Union
 from .json_dataclass.element import Element, DictOfElement, ListOfElement, Field
 from .tables import Table
-from .style import DocumentStyle, NamedStyle
+from .style import DocumentStyle, NamedStyle, Color
 from .ranges import NamedRange
 from .objects import InlineOrPositionedObject
 from .lists import List
@@ -172,14 +172,32 @@ class HTMLConverter:
                f'style="{obj.content.margins.as_css()};' \
                f'{obj.content.size.as_css()};{e_style}" alt="{obj.content.title} : {obj.content.description}">'
 
-    def __init__(self, google_doc: GoogleDoc, css_classes=None):
+    def __init__(self, google_doc: GoogleDoc, css_classes=None, ignore_black_white=False):
+        self.ignore_black_white = ignore_black_white
         if css_classes is None:
             css_classes = CSSStructure()
         self.css_classes = css_classes
         self.doc = google_doc
         self.title = self.doc.title
 
+    def override_black_white(self):
+        def wrapper(func):
+            def inner(*args, **kwargs):
+                res = func(*args, **kwargs)
+                if res is None:
+                    return None
+                if res.lower() == '#000000' or res.lower() == '#ffffff':
+                    return None
+                return res
+            return inner
+        backup = Color.as_css
+        Color.as_css = wrapper(Color.as_css)
+        return backup
+
+
     def body_as_html(self):
+        if self.ignore_black_white:
+            backup = self.override_black_white()
         sections = {0: []}
         section_styles = {0: None}
         key = 0
@@ -251,7 +269,8 @@ class HTMLConverter:
                             self.process_structural_element(elem) + '</div>'
 
             data += '</div>'
-
+        if self.ignore_black_white:
+            Color.as_css = backup
         return f'<div class="{self.css_classes.outer_div}">{data}</div>'
 
 
