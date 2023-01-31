@@ -37,9 +37,19 @@ class SyncCommand(Command):
     file_id: str = None
 
 @dataclass
-class RecacheCommand(Command):
-    action: str = 'recache'
+class ChangeConfigInt(Command):
+    action: str = 'configint'
+    name: str = ''
+    num_value: int = 0
 
+
+@dataclass
+class ChangeConfigStr(Command):
+    action: str = 'configstr'
+    name: str = ''
+    str_value: str = ''
 
 if __name__ == '__main__':
     print(Command.all_fields())
+    print(Command({'action': 'configstr', 'name': 'test', 'value': 'test'}))
+    print(Command({'action': 'config', 'name': 'test', 'value': 40}))
