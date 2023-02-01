@@ -21,7 +21,7 @@ class Directory:
     """
 
     def __init__(self, service: Resource, name: str, fid: str, config: "Config",
-                 sync_config_field: str = 'drive_config_sync_ttl'):
+                 sync_config_field: str = 'drive_config_sync_ttl', cache: "DomainNameValue" = None):
         """
         :param service: Google Drive Resource object made with build()
         :param name: Folder name
@@ -32,7 +32,7 @@ class Directory:
         self.fid = fid
         self.__config = config
         self.__sync_field = sync_config_field
-        self.__last_cached = 0
+        self.__cache = cache
         self.__cache = []
         self.__service = service
 
@@ -41,15 +41,13 @@ class Directory:
         """
         :return: List of files within the folder in GDrive format.
         """
-        if self.__last_cached - time() < -self.__config[self.__sync_field]:
+        cached = self.__cache[f'{name}_last_cached'] or 0
+        if cached - time() < -self.__config[self.__sync_field]:
             self.__cache = self.__service.files().list(q=f"'{self.fid}' in parents",
                                                        fields="files(id, name, description, mimeType)")\
                 .execute()['files']
-            self.__last_cached = time()
+            self.__cache[f'{self.name}_last_cached'] = time()
         return self.__cache
-
-    def clear_cache(self):
-        self.__last_cached = 0
 
 
 class AuthException(Exception):
@@ -68,18 +66,19 @@ class DriveConnect:
     # Google API scopes.
     SCOPES = ['https://www.googleapis.com/auth/drive.readonly', 'https://www.googleapis.com/auth/documents.readonly']
 
-    def __init__(self, config: "Config"):
+    def __init__(self, config: "Config", cache):
         """
         :param config: toycommons.storage.config object based on toycommons.model.config data
         """
         self.config = config
+        self.cache = cache
         self.__creds = Credentials.from_authorized_user_info(config.drive_token, scopes=self.SCOPES)
         self.__drive = build('drive', 'v3', credentials=self.__creds)
         self.__docs = build('docs', 'v1', credentials=self.__creds)
         self.directories = {}
         if self.config.drive_folder_id is not None:
             self.directories[None] = Directory(self.__drive, name='', fid=self.config.drive_folder_id,
-                                               config=self.config)
+                                               config=self.config, cache=self.cache)
 
     def __refresh(self):
         """
@@ -171,7 +170,7 @@ class DriveConnect:
             if fid is None:
                 raise FileNotFoundError(f'Folder {name} was not found in Drive')
         self.directories[name] = Directory(self.__drive, name, fid=fid, config=self.config,
-                                           sync_config_field=sync_config_field)
+                                           sync_config_field=sync_config_field, cache=self.cache)
 
     def get_synced_file(self, domain: str, name: str = None, process_function: Callable = lambda data: data.decode(),
                         fid: str = None, filename: str = None, sync_time: int = None, folder: str = None,

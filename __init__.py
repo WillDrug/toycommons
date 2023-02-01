@@ -54,7 +54,7 @@ class ToyInfra:
 
         self.drive = None
         if self.config.drive_token:
-            self.drive = DriveConnect(self.config)
+            self.drive = DriveConnect(self.config, self.cache)
         self.discover = ToydiscoverAPI(self.config)
 
     def get_url(self, service: "Service"):
