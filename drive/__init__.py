@@ -46,7 +46,7 @@ class Directory:
             self.__cache = self.__service.files().list(q=f"'{self.fid}' in parents",
                                                        fields="files(id, name, description, mimeType)")\
                 .execute()['files']
-            self.__cache[f'{self.name}_last_cached'] = time()
+            self.__cache_db[f'{self.name}_last_cached'] = time()
         return self.__cache
 
 
