@@ -153,7 +153,7 @@ class DriveConnect:
         """
         fid = self.file_id_by_name(name, folder=folder)
         if fid is None:
-            return None  # raise?
+            return None
         return self.file_by_id(fid)
 
     def add_directory(self, name: str, fid: str = None, parent: str = None, sync_config_field: str = 'drive_config_sync_ttl') -> None:
