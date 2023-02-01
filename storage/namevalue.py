@@ -14,6 +14,9 @@ class DomainNameValue:
         object.__setattr__(self, '_DomainNameValue__domain', domain)
         object.__setattr__(self, '_DomainNameValue__collection', collection)
 
+    def clear(self):
+        self.__collection.delete_many({'domain': self.__domain})
+
     def _get(self, item: str) -> Any:
         """
         Default getter of any items.
