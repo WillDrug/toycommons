@@ -51,7 +51,7 @@ class ToyInfra:
         self.config = Config(self.__db.config)
         self.commands = QueuedDataClass(self.__db.commands, datacls=Command)
         self.cache = DomainNameValue(self.name, self.__db.cache)
-
+        self.cache.clear()
         self.drive = None
         if self.config.drive_token:
             self.drive = DriveConnect(self.config, self.cache)
