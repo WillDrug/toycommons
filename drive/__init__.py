@@ -32,7 +32,7 @@ class Directory:
         self.fid = fid
         self.__config = config
         self.__sync_field = sync_config_field
-        self.__cache = cache
+        self.__cache_db = cache
         self.__cache = []
         self.__service = service
 
@@ -41,7 +41,7 @@ class Directory:
         """
         :return: List of files within the folder in GDrive format.
         """
-        cached = self.__cache[f'{name}_last_cached'] or 0
+        cached = self.__cache_db[f'{self.name}_last_cached'] or 0
         if cached - time() < -self.__config[self.__sync_field]:
             self.__cache = self.__service.files().list(q=f"'{self.fid}' in parents",
                                                        fields="files(id, name, description, mimeType)")\
@@ -66,7 +66,7 @@ class DriveConnect:
     # Google API scopes.
     SCOPES = ['https://www.googleapis.com/auth/drive.readonly', 'https://www.googleapis.com/auth/documents.readonly']
 
-    def __init__(self, config: "Config", cache):
+    def __init__(self, config: "Config", cache: "DomainNameValue"):
         """
         :param config: toycommons.storage.config object based on toycommons.model.config data
         """
