@@ -20,7 +20,8 @@ class Directory:
     Class to store file lists of a GDrive directory, cached.
     """
 
-    def __init__(self, service: Resource, name: str, fid: str, cache_time: int):
+    def __init__(self, service: Resource, name: str, fid: str, config: "Config",
+                 sync_config_field: str = 'drive_config_sync_ttl'):
         """
         :param service: Google Drive Resource object made with build()
         :param name: Folder name
@@ -29,7 +30,8 @@ class Directory:
         """
         self.name = name
         self.fid = fid
-        self.__cache_time = cache_time
+        self.__config = config
+        self.__sync_field = sync_config_field
         self.__last_cached = 0
         self.__cache = []
         self.__service = service
@@ -39,7 +41,7 @@ class Directory:
         """
         :return: List of files within the folder in GDrive format.
         """
-        if self.__last_cached - time() < -self.__cache_time:
+        if self.__last_cached - time() < -self.__config[self.__sync_field]:
             self.__cache = self.__service.files().list(q=f"'{self.fid}' in parents",
                                                        fields="files(id, name, description, mimeType)")\
                 .execute()['files']
@@ -77,7 +79,7 @@ class DriveConnect:
         self.directories = {}
         if self.config.drive_folder_id is not None:
             self.directories[None] = Directory(self.__drive, name='', fid=self.config.drive_folder_id,
-                                               cache_time=self.config.drive_config_sync_ttl)
+                                               config=self.config)
 
     def __refresh(self):
         """
@@ -154,7 +156,7 @@ class DriveConnect:
             return None  # raise?
         return self.file_by_id(fid)
 
-    def add_directory(self, name: str, fid: str = None, parent: str = None) -> None:
+    def add_directory(self, name: str, fid: str = None, parent: str = None, sync_config_field: str = 'drive_config_sync_ttl') -> None:
         """
         Add Directory object to the driveconnect list. Raises FileNotFoundError if no directory exists.
         :param name: Folder name
@@ -166,9 +168,10 @@ class DriveConnect:
             if parent in self.directories:
                 fid = next((q['id'] for q in self.directories[parent].listdir if
                             q['name'] == name and q['mimeType'] == self.FOLDER_TYPE), None)
-            if fid is None:  # todo: new file, mimetype = application/vnd.google-apps.folder, create.
+            if fid is None:
                 raise FileNotFoundError(f'Folder {name} was not found in Drive')
-        self.directories[name] = Directory(self.__drive, name, fid=fid, cache_time=self.config.drive_config_sync_ttl)
+        self.directories[name] = Directory(self.__drive, name, fid=fid, config=self.config,
+                                           sync_config_field=sync_config_field)
 
     def get_synced_file(self, domain: str, name: str = None, process_function: Callable = lambda data: data.decode(),
                         fid: str = None, filename: str = None, sync_time: int = None, folder: str = None,
