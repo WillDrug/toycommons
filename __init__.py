@@ -15,7 +15,7 @@ class InfraException(Exception):
     """
     pass
 
-
+#  todo: add local run which emulates mongo methods in-memory.
 class ToyInfra:
     @staticmethod
     def __get_priority_argument_value(arg, env_name):
