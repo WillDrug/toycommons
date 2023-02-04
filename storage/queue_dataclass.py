@@ -52,4 +52,4 @@ class QueuedDataClass:
         :param obj: Object to delete (expects "_id")
         :return:
         """
-        self.__collection.commands.delete_one({"_id": obj._id})
+        self.__collection.delete_one({"_id": obj._id})

@@ -33,7 +33,8 @@ class Directory:
         self.__config = config
         self.__sync_field = sync_config_field
         self.__cache_db = cache
-        self.__cache = []
+        self.__cache_db[f'{self.name}_last_cached'] = 0  # reinit relist. redundant but nice.
+        #self.__cache_db[f'{self.name}_listdir'] = None
         self.__service = service
 
     @property
@@ -43,11 +44,12 @@ class Directory:
         """
         cached = self.__cache_db[f'{self.name}_last_cached'] or 0
         if cached - time() < -self.__config[self.__sync_field]:
-            self.__cache = self.__service.files().list(q=f"'{self.fid}' in parents",
-                                                       fields="files(id, name, description, mimeType)")\
+            self.__cache_db[f'{self.name}_listdir'] = \
+                self.__service.files().list(q=f"'{self.fid}' in parents",
+                                            fields="files(id, name, description, mimeType)")\
                 .execute()['files']
             self.__cache_db[f'{self.name}_last_cached'] = time()
-        return self.__cache
+        return self.__cache_db[f'{self.name}_listdir']
 
 
 class AuthException(Exception):
