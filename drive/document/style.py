@@ -10,6 +10,11 @@ class Dimension(Element):
             return ''
         return f'{self.magnitude}{self.unit}'
 
+    def __eq__(self, other):
+        if other is None:
+            return None
+        return self.unit == other.unit and self.magnitude == other.magnitude
+
 
 class DimensionPack(Element):
     top: Dimension = Field('marginTop', alt_names=('paddingTop', 'positioning.topOffset'))
@@ -52,7 +57,7 @@ class Size(Element):
 class Color(Element):
     color: dict = Field('rgbColor', alt_names=('color.rgbColor',))
 
-    def as_css(self):
+    def as_css(self, ignore_ignoration=False):
         def to_hex(val: float):
             i_val = val * 256  # 256 to balance the curve of float values evenly
             if i_val == 256:
@@ -66,6 +71,10 @@ class Color(Element):
                f'{to_hex(self.color.get("green", 0))}' \
                f'{to_hex(self.color.get("blue", 0))}'
 
+    def __eq__(self, other):
+        if other is None:
+            return False
+        return self.color == other.color
 
 class SpaceStyle:
     default_header_id: str = 'defaultHeaderId'
@@ -170,18 +179,26 @@ class ParagraphStyle(Element):
         The ParagraphStyle on a Paragraph element that's contained in a table may inherit its paragraph style from the table style.
     """
 
-    def as_css_dict(self):
+    def as_css_dict(self, previous_border=False, next_border=False):
         output = {}
-        if self.space_above:
+        if self.space_above is not None and self.space_above.magnitude is not None:
             output['margin-top'] = self.space_above.as_css()
-        if self.space_below:
+        if self.space_below is not None and self.space_below.magnitude is not None:
             output['margin-bottom'] = self.space_below.as_css()
-        if self.border_top:
+
+        if self.border_between is not None:
+            if previous_border:
+                output.update(self.border_between.as_css_dict('top') or {})
+            if next_border:
+                output.update(self.border_between.as_css_dict('bottom') or {})
+
+        if self.border_bottom and not next_border:
+            output.update(self.border_bottom.as_css_dict('bottom') or {})
+        if self.border_top and not previous_border:
             output.update(self.border_top.as_css_dict('top') or {})
+
         if self.border_right:
             output.update(self.border_right.as_css_dict('right') or {})
-        if self.border_bottom:
-            output.update(self.border_bottom.as_css_dict('bottom') or {})
         if self.border_left:
             output.update(self.border_left.as_css_dict('left') or {})
         if self.shading is not None and self.shading.as_css() is not None:
@@ -197,7 +214,6 @@ class ParagraphStyle(Element):
         output['text-align'] = alignment.get(self.alignment, 'inherit')
 
         return output
-
 
 
 class Link(Element):
@@ -219,12 +235,25 @@ class TextStyle(Element):
     baseline_offset: str = 'baselineOffset'  # ENUM
     link: Link = 'link'
 
-    def as_css_dict(self):
+    def __add__(self, other):
+        out = {}
+        for attr in self._attributes:
+            if getattr(self, attr) == getattr(other, attr):
+                data = getattr(self, attr)
+                if data.__class__ in (Color, Dimension):
+                    data = data._json_data
+
+                key = getattr(self.__class__, attr)
+                out[key] = data
+
+        return TextStyle(out)
+
+    def as_css_dict(self, ignore_ignoration=False):
         out = {}
         if self.background is not None and self.background.as_css() is not None:
             out['background'] = self.background.as_css()
         if self.foreground is not None and self.foreground.as_css() is not None:
-            out['color'] = self.foreground.as_css()
+            out['color'] = self.foreground.as_css(ignore_ignoration=False)
         if self.strikethrough or self.underline:
             out['text-decoration'] = ''
         if self.underline:
@@ -236,7 +265,6 @@ class TextStyle(Element):
         if self.bold:
             out['font-weight'] = 'bold'
         return out
-
 
 
 class NamedStyle(Element):
