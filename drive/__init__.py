@@ -6,6 +6,7 @@ from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build, Resource
 from googleapiclient.errors import HttpError
+from google.auth.exceptions import RefreshError
 import requests
 import shutil
 from typing import Callable
@@ -89,7 +90,10 @@ class DriveConnect:
         """
         if not self.__creds or not self.__creds.valid:
             if self.__creds and self.__creds.expired and self.__creds.refresh_token:
-                self.__creds.refresh(Request())
+                try:
+                    self.__creds.refresh(Request())
+                except RefreshError:
+                    raise AuthException(f'Token invalidated again')
             else:
                 raise AuthException(f'Token failed for Google Drive. Update manually.')
             self.__creds_json = self.__creds.to_json()
