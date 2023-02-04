@@ -75,7 +75,6 @@ class DriveConnect:
         """
         self.config = config
         self.cache = cache
-        self.__creds = Credentials.from_authorized_user_info(config.drive_token, scopes=self.SCOPES)
         self.__drive = build('drive', 'v3', credentials=self.__creds)
         self.__docs = build('docs', 'v1', credentials=self.__creds)
         self.directories = {}
@@ -88,6 +87,7 @@ class DriveConnect:
         Refreshes google token.
         :return: None
         """
+        self.__creds = Credentials.from_authorized_user_info(self.config.drive_token, scopes=self.SCOPES)
         if not self.__creds or not self.__creds.valid:
             if self.__creds and self.__creds.expired and self.__creds.refresh_token:
                 try:
@@ -169,6 +169,7 @@ class DriveConnect:
         :param parent: Parent folder ID to listdir non-default when finding id.
         :return: None
         """
+        self.__refresh()
         if fid is None:
             if parent in self.directories:
                 fid = next((q['id'] for q in self.directories[parent].listdir if
@@ -196,6 +197,7 @@ class DriveConnect:
         :param copy_filename: If set to true, filename will be overridden by google drive file name.
         :return: SyncedFile
         """
+        self.__refresh()
         if fid is None and name is None:
             raise ValueError(f'Either name of file id should be provided to get a synced file.')
         if fid is None:
@@ -216,6 +218,7 @@ class DriveConnect:
     def get_google_doc(self, codename, doc_id, domain: str = None, get_synced: bool = True, sync_time: int = None,
                        filename: str = None, use_default_sync: bool = False, command_queue: "QueuedDataClass" = None,
                        cache_images: bool = True, image_folder='', uri_prepend=''):
+        self.__refresh()
         def process(data):
             g = GoogleDoc(data)  # process is download, download is sync so cache images = set "local" prop, always.
             if cache_images:
@@ -244,4 +247,5 @@ class DriveConnect:
                           filename=filename, command_queue=command_queue)
 
     def list_google_docs(self, folder=None):
+        self.__refresh()
         return [q for q in self.directories.get(folder).listdir if q['mimeType'] == self.GDOC_TYPE]
