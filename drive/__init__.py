@@ -75,6 +75,7 @@ class DriveConnect:
         """
         self.config = config
         self.cache = cache
+        self.__refresh()
         self.__drive = build('drive', 'v3', credentials=self.__creds)
         self.__docs = build('docs', 'v1', credentials=self.__creds)
         self.directories = {}
