@@ -30,13 +30,15 @@ class ToyInfra:
         else:
             return arg
 
-    def __init__(self, name: str, host: str = 'toydb', port: int = 27017, user: str = None, passwd: str = None):
+    def __init__(self, name: str, host: str = 'toydb', port: int = 27017, user: str = None, passwd: str = None,
+                 drive=True):
         """
         :param name: Name of service starting.
         :param host: Database hostname
         :param port: Database port
         :param user: Database username
         :param passwd: Database password
+        :param drive: Initialize drive connection
         """
         self.name = name
         host = self.__get_priority_argument_value(host, 'T_HOST')
@@ -53,7 +55,7 @@ class ToyInfra:
         self.cache = DomainNameValue(self.name, self.__db.cache)
         self.cache.clear()
         self.drive = None
-        if self.config.drive_token:
+        if self.config.drive_token and drive:
             self.drive = DriveConnect(self.config, self.cache)
         self.discover = ToydiscoverAPI(self.config)
 
