@@ -35,7 +35,7 @@ class Directory:
         self.__sync_field = sync_config_field
         self.__cache_db = cache
         self.__cache_db[f'{self.name}_last_cached'] = 0  # reinit relist. redundant but nice.
-        #self.__cache_db[f'{self.name}_listdir'] = None
+        # self.__cache_db[f'{self.name}_listdir'] = None
         self.__service = service
 
     @property
@@ -47,8 +47,8 @@ class Directory:
         if cached - time() < -self.__config[self.__sync_field]:
             self.__cache_db[f'{self.name}_listdir'] = \
                 self.__service.files().list(q=f"'{self.fid}' in parents",
-                                            fields="files(id, name, description, mimeType)")\
-                .execute()['files']
+                                            fields="files(id, name, description, mimeType)") \
+                    .execute()['files']
             self.__cache_db[f'{self.name}_last_cached'] = time()
         return self.__cache_db[f'{self.name}_listdir']
 
@@ -88,7 +88,8 @@ class DriveConnect:
         Refreshes google token.
         :return: None
         """
-        self.__creds = Credentials.from_authorized_user_info(self.config.drive_token, scopes=self.SCOPES)
+        self.__creds = Credentials.from_authorized_user_info(self.config.get_ignore_cache('drive_token'),
+                                                             scopes=self.SCOPES)
         if not self.__creds or not self.__creds.valid:
             if self.__creds and self.__creds.expired and self.__creds.refresh_token:
                 try:
@@ -162,7 +163,8 @@ class DriveConnect:
             return None
         return self.file_by_id(fid)
 
-    def add_directory(self, name: str, fid: str = None, parent: str = None, sync_config_field: str = 'drive_config_sync_ttl') -> None:
+    def add_directory(self, name: str, fid: str = None, parent: str = None,
+                      sync_config_field: str = 'drive_config_sync_ttl') -> None:
         """
         Add Directory object to the driveconnect list. Raises FileNotFoundError if no directory exists.
         :param name: Folder name
@@ -220,6 +222,7 @@ class DriveConnect:
                        filename: str = None, use_default_sync: bool = False, command_queue: "QueuedDataClass" = None,
                        cache_images: bool = True, image_folder='', uri_prepend=''):
         self.__refresh()
+
         def process(data):
             g = GoogleDoc(data)  # process is download, download is sync so cache images = set "local" prop, always.
             if cache_images:
@@ -237,6 +240,7 @@ class DriveConnect:
                         img.content.content.properties.local = f'{uri_prepend}{img_filename}'
 
             return g
+
         if not get_synced:
             return GoogleDoc(self.__docs.documents().get(documentId=doc_id).execute())
         if use_default_sync:
