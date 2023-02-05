@@ -47,10 +47,7 @@ class CachedDataclass:
         self.__collection.update_one({'name': key}, {'$set': {'name': key, 'value': value}}, upsert=True)
 
     def get_ignore_cache(self, name):
-        data = self.__collection.find_one({'name': name})
-        if data is None:
-            return
-        return self.datacls(**data)
+        return self.__collection.find_one({'name': name})
 
     def __getattr__(self, item: str):
         """
