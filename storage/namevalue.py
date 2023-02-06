@@ -33,6 +33,8 @@ class DomainNameValue:
         :param value: Any built-in
         :return: None
         """
+        if value is None:
+            return self.__collection.delete_one({"name": key, "domain": self.__domain})
         return self.__collection.\
             update_one({"name": key, "domain": self.__domain},
                        {"$set": {"domain": self.__domain,
