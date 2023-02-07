@@ -59,24 +59,28 @@ class ToyInfra:
             self.drive = DriveConnect(self.config, self.cache)
         self.discover = ToydiscoverAPI(self.config)
 
-    def get_url(self, service: "Service"):
+    def get_url(self, service: str, origin=None, headers=None):
         """
-        :param service: Service model object.
+        :param subdomain: use subdomain model or not.
+        :param service: Service hostname (Service.host)
         :return: str (url to service, based on current main_url)
         """
-        if '.' in self.config.base_url:
-            return self.config.base_url + '/' + service
-        else:
-            protocol = 'http://' if self.config.base_url.startswith('http://') else 'https://'
-            domain = self.config.base_url.replace('http://', '').replace('https://', '')
-            return f'{protocol}{service}.{domain}'
+        if origin is not None:
+            headers = headers or {}
+            if 'subdomain' in headers:
+                origin = '.'.join(origin.split('.')[-2:])
+                return f'https://{service}.{origin}'
+            else:
+                origin = origin.split('/')[0]
+                return f'https://{origin}/{service}'
+        return self.config.base_url + '/' + service
 
-    @property
-    def self_url(self):
+
+    def get_self_url(self, origin=None, headers=None):
         """
         :return: URL to self
         """
-        return self.get_url(self.name)
+        return self.get_url(self.name, origin=origin, headers=headers)
 
     def get_own_config(self, sync_time: int = None, use_default_sync_time: bool = False):
         """
