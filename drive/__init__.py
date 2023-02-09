@@ -69,12 +69,13 @@ class DriveConnect:
     # Google API scopes.
     SCOPES = ['https://www.googleapis.com/auth/drive.readonly', 'https://www.googleapis.com/auth/documents.readonly']
 
-    def __init__(self, config: "Config", cache: "DomainNameValue"):
+    def __init__(self, config: "Config", cache: "DomainNameValue", ignore_errors=False):
         """
         :param config: toycommons.storage.config object based on toycommons.model.config data
         """
         self.config = config
         self.cache = cache
+        self.ignore_errors = ignore_errors
         self.__refresh()
         self.__drive = build('drive', 'v3', credentials=self.__creds)
         self.__docs = build('docs', 'v1', credentials=self.__creds)
@@ -95,13 +96,18 @@ class DriveConnect:
                 try:
                     self.__creds.refresh(Request())
                 except RefreshError:
+                    if self.ignore_errors:
+                        return False
                     raise AuthException(f'Token invalidated again')
             else:
+                if self.ignore_errors:
+                    return False
                 raise AuthException(f'Token failed for Google Drive. Update manually.')
             self.__creds_json = self.__creds.to_json()
             self.config.drive_token = json.loads(self.__creds_json)
 
             # expiry 2023-01-09T19:22:02.606331Z
+        return True
 
     def file_by_id(self, fileid: str) -> bytes:
         """
@@ -109,7 +115,8 @@ class DriveConnect:
         :param fileid: string
         :return: file data.
         """
-        self.__refresh()
+        if not self.__refresh():
+            return None
         request = self.__drive.files().get_media(fileId=fileid)
         f = BytesIO()
         downloader = MediaIoBaseDownload(f, request)
@@ -124,7 +131,8 @@ class DriveConnect:
         :param folder: Folder to scan. Default is "none" which is main toychest dir.
         :return:
         """
-        self.__refresh()
+        if not self.__refresh():
+            return []
         return self.directories[folder].listdir
 
     def file_id_by_name(self, name: str, folder: str = None) -> str or None:
@@ -172,7 +180,8 @@ class DriveConnect:
         :param parent: Parent folder ID to listdir non-default when finding id.
         :return: None
         """
-        self.__refresh()
+        if not self.__refresh():
+            return
         if fid is None:
             if parent in self.directories:
                 fid = next((q['id'] for q in self.directories[parent].listdir if
@@ -200,7 +209,7 @@ class DriveConnect:
         :param copy_filename: If set to true, filename will be overridden by google drive file name.
         :return: SyncedFile
         """
-        self.__refresh()
+        access_exists = self.__refresh()
         if fid is None and name is None:
             raise ValueError(f'Either name of file id should be provided to get a synced file.')
         if fid is None:
@@ -209,19 +218,23 @@ class DriveConnect:
             raise FileNotFoundError(f'Can\'t get id for {name} file.')
         if name is None:
             name = self.name_by_file_id(fid, folder=folder)
-        if name is None:
+        if name is None and copy_filename:  # name guessing without filename doesn't work even with ignore_errors=True
             raise FileNotFoundError(f'ID {fid} does not have a corresponding file')
         if use_default_sync_time:
             sync_time = self.config.drive_config_sync_ttl
         if copy_filename:
             filename = name
-        return SyncedFile(domain, name, lambda: self.file_by_id(fid), process_function=process_function,
+        if access_exists:
+            req_func = lambda: self.file_by_id(fid)
+        else:
+            req_func = lambda: b''
+        return SyncedFile(domain, name, req_func, process_function=process_function,
                           filename=filename, sync_time=sync_time, fid=fid, command_queue=command_queue)
 
     def get_google_doc(self, codename, doc_id, domain: str = None, get_synced: bool = True, sync_time: int = None,
                        filename: str = None, use_default_sync: bool = False, command_queue: "QueuedDataClass" = None,
                        cache_images: bool = True, image_folder='', uri_prepend=''):
-        self.__refresh()
+        access_exists = self.__refresh()
 
         def process(data):
             g = GoogleDoc(data)  # process is download, download is sync so cache images = set "local" prop, always.
@@ -247,10 +260,15 @@ class DriveConnect:
             sync_time = self.config.drive_config_sync_ttl
         if filename is None:
             filename = f'{doc_id}.gdoc'
-        return SyncedFile(domain, codename, lambda: self.__docs.documents().get(documentId=doc_id).execute(),
+        if access_exists:
+            req_func = lambda: self.__docs.documents().get(documentId=doc_id).execute()
+        else:
+            req_func = lambda: '{}'
+        return SyncedFile(domain, codename, req_func,
                           process_function=process, sync_time=sync_time, fid=doc_id,
                           filename=filename, command_queue=command_queue)
 
     def list_google_docs(self, folder=None):
-        self.__refresh()
+        if not self.__refresh():
+            return []
         return [q for q in self.directories.get(folder).listdir if q['mimeType'] == self.GDOC_TYPE]

@@ -31,7 +31,7 @@ class ToyInfra:
             return arg
 
     def __init__(self, name: str, host: str = 'toydb', port: int = 27017, user: str = None, passwd: str = None,
-                 drive=True):
+                 drive=True, ignore_drive_errors=False):
         """
         :param name: Name of service starting.
         :param host: Database hostname
@@ -56,7 +56,7 @@ class ToyInfra:
         self.cache.clear()
         self.drive = None
         if self.config.drive_token and drive:
-            self.drive = DriveConnect(self.config, self.cache)
+            self.drive = DriveConnect(self.config, self.cache, ignore_errors=ignore_drive_errors)
         self.discover = ToydiscoverAPI(self.config)
 
     def get_url(self, service: str, origin=None, headers=None):
