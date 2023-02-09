@@ -76,9 +76,13 @@ class DriveConnect:
         self.config = config
         self.cache = cache
         self.ignore_errors = ignore_errors
-        self.__refresh()
-        self.__drive = build('drive', 'v3', credentials=self.__creds)
-        self.__docs = build('docs', 'v1', credentials=self.__creds)
+        access = self.__refresh()
+        if access:
+            self.__drive = build('drive', 'v3', credentials=self.__creds)
+            self.__docs = build('docs', 'v1', credentials=self.__creds)
+        else:
+            self.__drive = None
+            self.__docs = None
         self.directories = {}
         if self.config.drive_folder_id is not None:
             self.directories[None] = Directory(self.__drive, name='', fid=self.config.drive_folder_id,
@@ -89,7 +93,12 @@ class DriveConnect:
         Refreshes google token.
         :return: None
         """
-        self.__creds = Credentials.from_authorized_user_info(self.config.get_ignore_cache('drive_token'),
+        token = self.config.get_ignore_cache('drive_token')
+        if token is None and self.ignore_errors:
+            return False
+        elif token is None:
+            raise AuthException('No drive token provided')
+        self.__creds = Credentials.from_authorized_user_info(token,
                                                              scopes=self.SCOPES)
         if not self.__creds or not self.__creds.valid:
             if self.__creds and self.__creds.expired and self.__creds.refresh_token:
@@ -212,11 +221,11 @@ class DriveConnect:
         access_exists = self.__refresh()
         if fid is None and name is None:
             raise ValueError(f'Either name of file id should be provided to get a synced file.')
-        if fid is None:
+        if fid is None and access_exists:
             fid = self.file_id_by_name(name, folder=folder)
-        if fid is None:
+        if fid is None and access_exists:
             raise FileNotFoundError(f'Can\'t get id for {name} file.')
-        if name is None:
+        if name is None and access_exists:
             name = self.name_by_file_id(fid, folder=folder)
         if name is None and copy_filename:  # name guessing without filename doesn't work even with ignore_errors=True
             raise FileNotFoundError(f'ID {fid} does not have a corresponding file')
@@ -229,7 +238,8 @@ class DriveConnect:
         else:
             req_func = lambda: b''
         return SyncedFile(domain, name, req_func, process_function=process_function,
-                          filename=filename, sync_time=sync_time, fid=fid, command_queue=command_queue)
+                          filename=filename, sync_time=sync_time, fid=fid, command_queue=command_queue,
+                          cache_only=not access_exists)
 
     def get_google_doc(self, codename, doc_id, domain: str = None, get_synced: bool = True, sync_time: int = None,
                        filename: str = None, use_default_sync: bool = False, command_queue: "QueuedDataClass" = None,
@@ -266,7 +276,7 @@ class DriveConnect:
             req_func = lambda: '{}'
         return SyncedFile(domain, codename, req_func,
                           process_function=process, sync_time=sync_time, fid=doc_id,
-                          filename=filename, command_queue=command_queue)
+                          filename=filename, command_queue=command_queue, cache_only=not access_exists)
 
     def list_google_docs(self, folder=None):
         if not self.__refresh():

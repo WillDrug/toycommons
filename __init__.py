@@ -55,7 +55,7 @@ class ToyInfra:
         self.cache = DomainNameValue(self.name, self.__db.cache)
         self.cache.clear()
         self.drive = None
-        if self.config.drive_token and drive:
+        if (self.config.drive_token or ignore_drive_errors) and drive:
             self.drive = DriveConnect(self.config, self.cache, ignore_errors=ignore_drive_errors)
         self.discover = ToydiscoverAPI(self.config)
 

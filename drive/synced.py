@@ -10,7 +10,8 @@ class SyncedFile:
 
     def __init__(self, domain: str, name: str, request_function: Callable,
                  process_function: Callable = lambda data: data.decode(), filename: str = None,
-                 sync_time: int = None, fid: str = None, command_queue: "QueuedDataClass" = None):
+                 sync_time: int = None, fid: str = None, command_queue: "QueuedDataClass" = None,
+                 cache_only: bool = False):
         """
         File synced and cached in local storage from GDrive.
         :param domain: App of Toychest, string.
@@ -37,7 +38,8 @@ class SyncedFile:
                 with open(self.filename, 'rb') as f:
                     self.__data = pickle.loads(f.read())
             except FileNotFoundError as e:
-                pass
+                if cache_only:
+                    raise FileNotFoundError(f'File {filename} was requested with cache-only and not found.')
         if self.__data is None:
             self.sync()
 
