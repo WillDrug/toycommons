@@ -1,5 +1,6 @@
 from os import getenv
-from pymongo import MongoClient
+from .storage.localstorage import LocalStorage
+from .storage.mongostorage import MongoStorage
 from .storage.config import Config
 from .drive import DriveConnect
 from .toydiscover import ToydiscoverAPI
@@ -14,6 +15,7 @@ class InfraException(Exception):
     Generic Exception for ease of handling.
     """
     pass
+
 
 #  todo: add local run which emulates mongo methods in-memory.
 class ToyInfra:
@@ -46,9 +48,15 @@ class ToyInfra:
         user = self.__get_priority_argument_value(user, 'T_USER')
         passwd = self.__get_priority_argument_value(passwd, 'T_PASSWORD')
 
-        if host is None or port is None or user is None or passwd is None:
-            raise ConnectionError(f'ToyInfra was initialized without full attributes')
-        self.__odbc_connection = MongoClient(host=host, port=port, username=user, password=passwd)
+        local_environment = True if getenv('LOCAL') else False
+
+        if local_environment:
+            self.__odbc_connection = LocalStorage()
+        else:
+            if host is None or port is None or user is None or passwd is None:
+                raise ConnectionError(f'ToyInfra was initialized without full attributes')
+            # MongoClient(host=host, port=port, username=user, password=passwd)
+            self.__odbc_connection = MongoStorage(host=host, port=port, user=user, passwd=passwd)
         self.__db = self.__odbc_connection.toyinfra
         self.config = Config(self.__db.config)
         self.commands = QueuedDataClass(self.__db.commands, datacls=Command)
@@ -61,6 +69,8 @@ class ToyInfra:
 
     def get_url(self, service: str, origin=None, headers=None):
         """
+        :param headers: headers of the request to check for subdomain usage
+        :param origin: origin header from the request to use instead of base url
         :param subdomain: use subdomain model or not.
         :param service: Service hostname (Service.host)
         :return: str (url to service, based on current main_url)
@@ -75,9 +85,10 @@ class ToyInfra:
                 return f'https://{origin}/{service}'
         return self.config.base_url + '/' + service
 
-
     def get_self_url(self, origin=None, headers=None):
         """
+        :param headers: headers of the request to check for subdomain usage
+        :param origin: origin header from the request to use instead of base url
         :return: URL to self
         """
         return self.get_url(self.name, origin=origin, headers=headers)
@@ -107,4 +118,3 @@ class ToyInfra:
         if domain is None:
             domain = self.name
         self.__db.cache.delete_many({"domain": domain})
-

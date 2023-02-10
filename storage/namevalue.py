@@ -35,11 +35,10 @@ class DomainNameValue:
         """
         if value is None:
             return self.__collection.delete_one({"name": key, "domain": self.__domain})
-        return self.__collection.\
-            update_one({"name": key, "domain": self.__domain},
-                       {"$set": {"domain": self.__domain,
-                                 "name": key, "value": value}},
-                       upsert=True)
+        return self.__collection.update_one({"name": key, "domain": self.__domain},
+                                            {"$set": {"domain": self.__domain,
+                                                      "name": key, "value": value}},
+                                            upsert=True)
 
     # next section proxies attribute and item access into _get and _set.
 
