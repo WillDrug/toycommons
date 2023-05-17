@@ -2,12 +2,8 @@ from __future__ import print_function
 from io import BytesIO
 from os import path
 import json
-from google.auth.transport.requests import Request
-from google.oauth2.credentials import Credentials
-from oauth2client.service_account import ServiceAccountCredentials
+from google.oauth2 import service_account
 from googleapiclient.discovery import build, Resource
-from googleapiclient.errors import HttpError
-from google.auth.exceptions import RefreshError
 import requests
 import shutil
 from typing import Callable
@@ -104,27 +100,8 @@ class DriveConnect:
             return False
         elif token is None:
             raise AuthException('No drive token provided')
-
-        self.__creds = ServiceAccountCredentials.from_json(token)
-
-        # self.__creds = Credentials.from_authorized_user_info(token,
-        #                                                      scopes=self.SCOPES)
-        if not self.__creds or not self.__creds.valid:
-            if self.__creds and self.__creds.expired and self.__creds.refresh_token:
-                try:
-                    self.__creds.refresh(Request())
-                except RefreshError:
-                    if self.ignore_errors:
-                        return False
-                    raise AuthException(f'Token invalidated again')
-            else:
-                if self.ignore_errors:
-                    return False
-                raise AuthException(f'Token failed for Google Drive. Update manually.')
-            self.__creds_json = self.__creds.to_json()
-            self.config.drive_token = json.loads(self.__creds_json)
-
-            # expiry 2023-01-09T19:22:02.606331Z
+        # todo catch errors return false.
+        self.__creds = service_account.Credentials.from_service_account_info(json.loads(token))
         return True
 
     def file_by_id(self, fileid: str) -> bytes:
