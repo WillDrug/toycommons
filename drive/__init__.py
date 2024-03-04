@@ -44,7 +44,7 @@ class Directory:
         :return: List of files within the folder in GDrive format.
         """
         cached = self.__cache_db[f'{self.name}_last_cached'] or 0
-        if cached - time() < -self.__config[self.__sync_field]:
+        if time() - cached > self.__config[self.__sync_field]:
             self.__cache_db[f'{self.name}_listdir'] = \
                 self.__service.files().list(q=f"'{self.fid}' in parents",
                                             fields="files(id, name, description, mimeType)") \
