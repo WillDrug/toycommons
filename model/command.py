@@ -36,6 +36,7 @@ class SyncCommand(Command):
     file: str = None
     file_id: str = None
 
+
 @dataclass
 class ChangeConfigInt(Command):
     action: str = 'configint'
