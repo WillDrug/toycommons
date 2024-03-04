@@ -5,3 +5,4 @@ google
 google-api-python-client
 google-auth-oauthlib
 fastapi_utils
+oauth2client
