@@ -1,10 +1,12 @@
 from .google_drive import DriveConnect, SyncedFile, GoogleDoc
+from typing import Callable
 
 from time import time
 import os
 from os import path
 import requests
 import shutil
+
 
 # todo: put them on an interface
 class LocalDirectory:
@@ -53,7 +55,7 @@ class DriveMock:
         self.directories = {}
         if self.config.drive_folder_id is not None:
             self.directories[None] = LocalDirectory(self.local_folder, name='', fid=self.config.drive_folder_id,
-                                               config=self.config, cache=self.cache)
+                                                    config=self.config, cache=self.cache)
 
     def __refresh(self):
         """
