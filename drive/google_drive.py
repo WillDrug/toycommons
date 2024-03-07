@@ -24,7 +24,7 @@ class Directory:
     """
 
     def __init__(self, service: Resource, name: str, fid: str, config: "Config",
-                 sync_config_field: str = 'drive_config_sync_ttl', cache: "DomainNameValue" = None):
+                 sync_config_field: str = 'default_config_sync_ttl', cache: "DomainNameValue" = None):
         """
         :param service: Google Drive Resource object made with build()
         :param name: Folder name
@@ -167,7 +167,7 @@ class DriveConnect:
         return self.file_by_id(fid)
 
     def add_directory(self, name: str, fid: str = None, parent: str = None,
-                      sync_config_field: str = 'drive_config_sync_ttl') -> None:
+                      sync_config_field: str = 'default_config_sync_ttl') -> None:
         """
         Add Directory object to the driveconnect list. Raises FileNotFoundError if no directory exists.
         :param name: Folder name
@@ -216,7 +216,7 @@ class DriveConnect:
         if name is None and copy_filename:  # name guessing without filename doesn't work even with ignore_errors=True
             raise FileNotFoundError(f'ID {fid} does not have a corresponding file')
         if use_default_sync_time:
-            sync_time = self.config.drive_config_sync_ttl
+            sync_time = self.config.default_config_sync_ttl
         if copy_filename:
             filename = name
         if access_exists:
@@ -253,7 +253,7 @@ class DriveConnect:
         if not get_synced:
             return GoogleDoc(self.__docs.documents().get(documentId=doc_id).execute())
         if use_default_sync:
-            sync_time = self.config.drive_config_sync_ttl
+            sync_time = self.config.default_config_sync_ttl
         if filename is None:
             filename = f'{doc_id}.gdoc'
         if access_exists:
