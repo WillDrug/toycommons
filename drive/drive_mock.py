@@ -1,47 +1,15 @@
-from __future__ import print_function
-from io import BytesIO
-from os import path
-import json
-from google.oauth2 import service_account
-from googleapiclient.discovery import build, Resource
-import requests
-import shutil
-from typing import Callable
-from googleapiclient.http import MediaIoBaseDownload
-from time import time
 from drive_interface import AbstractDrive, AbstractDirectory
-from .synced import SyncedFile
-from .document import GoogleDoc
-
-"""
-THIS DRIVE MODEL IS DEPRECATED.
-Google invalidates the OAuth key approximately once per week which makes it a horrible permanent solution.
-todo: rewrite to gain static functions for getting google docs or files via a link.
-
-NEVERMIND: they stopped. I think I did something. 
-"""
 
 
-class Directory(AbstractDirectory):
-    """
-    Class to store file lists of a GDrive directory, cached.
-    """
-
-    def __init__(self, service: Resource, name: str, fid: str, config: "Config",
+class LocalDirectory(AbstractDirectory):
+    def __init__(self, service, name: str, fid: str, config: "Config",
                  sync_config_field: str = 'default_config_sync_ttl', cache: "DomainNameValue" = None):
-        """
-        :param service: Google Drive Resource object made with build()
-        :param name: Folder name
-        :param fid: Folder id
-        :param cache_time: Time to cache listdir
-        """
         self.name = name
         self.fid = fid
         self.__config = config
         self.__sync_field = sync_config_field
         self.__cache_db = cache
-        self.__cache_db[f'{self.name}_last_cached'] = 0  # reinit relist. redundant but nice.
-        # self.__cache_db[f'{self.name}_listdir'] = None
+        self.__cache_db[f'{self.name}_last_cached'] = 0
         self.__service = service
 
     @property
@@ -51,61 +19,41 @@ class Directory(AbstractDirectory):
         """
         cached = self.__cache_db[f'{self.name}_last_cached'] or 0
         if time() - cached > self.__config[self.__sync_field]:
-            self.__cache_db[f'{self.name}_listdir'] = \
-                self.__service.files().list(q=f"'{self.fid}' in parents",
-                                            fields="files(id, name, description, mimeType)") \
-                    .execute()['files']
+            self.__cache_db[f'{self.name}_listdir'] = [{'name': file,
+                                                        'id': file,
+                                                        'mimeType':
+                                                            0 if not path.isfile(path.join(self.__service, file))
+                                                            else 2 if file.endswith('.gdoc_local') else 1} for file
+                                                       in os.listdir(self.__service)]
             self.__cache_db[f'{self.name}_last_cached'] = time()
         return self.__cache_db[f'{self.name}_listdir']
 
 
-class AuthException(Exception):
-    """
-    Reraised for Authentication problems; todo: move to common exceptions
-    """
-    pass
+# todo put drive mock on the same interface
+class DriveMock(AbstractDrive):
+    FOLDER_TYPE = 0
+    FILE_TYPE = 1
+    GDOC_TYPE = 2
 
-
-class DriveConnect(AbstractDrive):
-    FOLDER_TYPE = 'application/vnd.google-apps.folder'
-    GDOC_TYPE = 'application/vnd.google-apps.document'
-    """
-    Class to proxy Google API calls to better suit app-building.
-    """
-    # Google API scopes.
-    SCOPES = ['https://www.googleapis.com/auth/drive.readonly', 'https://www.googleapis.com/auth/documents.readonly']
-
-    def __init__(self, config: "Config", cache: "DomainNameValue", ignore_errors=False):
+    def __init__(self, local_folder, config: "Config", cache: "DomainNameValue", ignore_errors=False):
         """
         :param config: toycommons.storage.config object based on toycommons.model.config data
         """
         self.config = config
         self.cache = cache
         self.ignore_errors = ignore_errors
-        access = self.__refresh()
-        if access:
-            self.__drive = build('drive', 'v3', credentials=self.__creds)
-            self.__docs = build('docs', 'v1', credentials=self.__creds)
-        else:
-            self.__drive = None
-            self.__docs = None
+        self.local_folder = local_folder
+
         self.directories = {}
         if self.config.drive_folder_id is not None:
-            self.directories[None] = Directory(self.__drive, name='', fid=self.config.drive_folder_id,
-                                               config=self.config, cache=self.cache)
+            self.directories[None] = LocalDirectory(self.local_folder, name='', fid=self.config.drive_folder_id,
+                                                    config=self.config, cache=self.cache)
 
     def __refresh(self):
         """
         Refreshes google token.
         :return: None
         """
-        token = self.config.get_ignore_cache('drive_token')
-        if token is None and self.ignore_errors:
-            return False
-        elif token is None:
-            raise AuthException('No drive token provided')
-        # todo catch errors return false.
-        self.__creds = service_account.Credentials.from_service_account_info(json.loads(token))
         return True
 
     def file_by_id(self, fileid: str) -> bytes:
@@ -116,13 +64,9 @@ class DriveConnect(AbstractDrive):
         """
         if not self.__refresh():
             return None
-        request = self.__drive.files().get_media(fileId=fileid)
-        f = BytesIO()
-        downloader = MediaIoBaseDownload(f, request)
-        done = False
-        while not done:
-            status, done = downloader.next_chunk()
-        return f.getvalue()
+        with open(f'{self.local_folder}/{fileid}', 'rb') as f:
+            res = f.read()
+        return res
 
     def get_folder_files(self, folder: str = None) -> dict:
         """
@@ -174,7 +118,6 @@ class DriveConnect(AbstractDrive):
                       sync_config_field: str = 'default_config_sync_ttl') -> None:
         """
         Add Directory object to the driveconnect list. Raises FileNotFoundError if no directory exists.
-        :param sync_config_field: Field of config to use as a default TTL time
         :param name: Folder name
         :param fid: Optional: folder id. If not given, will be found by listing.
         :param parent: Parent folder ID to listdir non-default when finding id.
@@ -188,8 +131,8 @@ class DriveConnect(AbstractDrive):
                             q['name'] == name and q['mimeType'] == self.FOLDER_TYPE), None)
             if fid is None:
                 raise FileNotFoundError(f'Folder {name} was not found in Drive')
-        self.directories[name] = Directory(self.__drive, name, fid=fid, config=self.config,
-                                           sync_config_field=sync_config_field, cache=self.cache)
+        self.directories[name] = LocalDirectory(self.local_folder, name, fid=fid, config=self.config,
+                                                sync_config_field=sync_config_field, cache=self.cache)
 
     def get_synced_file(self, domain: str, name: str = None, process_function: Callable = lambda data: data.decode(),
                         fid: str = None, filename: str = None, sync_time: int = None, folder: str = None,
@@ -197,7 +140,6 @@ class DriveConnect(AbstractDrive):
                         copy_filename: bool = False) -> SyncedFile:
         """
         Generated a SyncedFile objects via parameters.
-        :param fid: file id within drive
         :param command_queue: get_commands_queue function from toyinfra.
         :param domain: Domain for the synced file (represents toychest application)
         :param name: Filename within Google Drive
@@ -257,13 +199,14 @@ class DriveConnect(AbstractDrive):
             return g
 
         if not get_synced:
-            return GoogleDoc(self.__docs.documents().get(documentId=doc_id).execute())
+            # expected json locally
+            return GoogleDoc(self.file_by_id(doc_id))
         if use_default_sync:
             sync_time = self.config.default_config_sync_ttl
         if filename is None:
-            filename = f'{doc_id}.gdoc'
+            filename = f'{doc_id}.gdoc_local'
         if access_exists:
-            req_func = lambda: self.__docs.documents().get(documentId=doc_id).execute()
+            req_func = lambda: self.file_by_id(doc_id)
         else:
             req_func = lambda: '{}'
         return SyncedFile(domain, codename, req_func,
