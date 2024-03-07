@@ -49,9 +49,18 @@ class ToyInfra:
         passwd = self.__get_priority_argument_value(passwd, 'T_PASSWORD')
 
         local_environment = True if getenv('LOCAL') else False
-
+        local_folder = self.__get_priority_argument_value('data', 'LOCAL_FOLDER')
         if local_environment:
             self.__odbc_connection = LocalStorage()
+            try:
+                with open(f'{local_folder}/local_config.json', 'r') as f:
+                    local_config = json.loads(f.read())
+                    for k in local_config:
+                        self.__odbc_connection.toyinfra.config.insert_one({'name': k, 'value': local_config[k]})
+
+            except FileNotFoundError:
+                pass
+
         else:
             if host is None or port is None or user is None or passwd is None:
                 raise ConnectionError(f'ToyInfra was initialized without full attributes')
@@ -64,7 +73,7 @@ class ToyInfra:
         self.cache.clear()
         self.drive = None
         if local_environment and drive:
-            self.drive = DriveMock(self.__get_priority_argument_value('data', 'LOCAL_FOLDER'),
+            self.drive = DriveMock(local_folder,
                                    self.config, self.cache, ignore_errors=ignore_drive_errors)
         elif (self.config.drive_token or ignore_drive_errors) and drive:
             self.drive = DriveConnect(self.config, self.cache, ignore_errors=ignore_drive_errors)

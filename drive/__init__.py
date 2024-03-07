@@ -72,7 +72,7 @@ class DriveMock:
         """
         if not self.__refresh():
             return None
-        with open(f'{self.local_folder}/{fileid}', 'r') as f:
+        with open(f'{self.local_folder}/{fileid}', 'rb') as f:
             res = f.read()
         return res
 
