@@ -40,7 +40,7 @@ class Directory(AbstractDirectory):
         self.__config = config
         self.__sync_field = sync_config_field
         self.__cache_db = cache
-        self.__cache_db[f'{self.name}_last_cached'] = 0  # reinit relist. redundant but nice.
+        # self.__cache_db[f'{self.name}_last_cached'] = 0  # reinit relist. redundant but nice.
         # self.__cache_db[f'{self.name}_listdir'] = None
         self.__service = service
 
