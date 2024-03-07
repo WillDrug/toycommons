@@ -2,7 +2,7 @@ from os import getenv
 from .storage.localstorage import LocalStorage
 from .storage.mongostorage import MongoStorage
 from .storage.config import Config
-from .drive import DriveConnect
+from .drive import DriveConnect, DriveMock
 from .toydiscover import ToydiscoverAPI
 from .storage.namevalue import DomainNameValue
 from .storage.queue_dataclass import QueuedDataClass
@@ -63,7 +63,10 @@ class ToyInfra:
         self.cache = DomainNameValue(self.name, self.__db.cache)
         self.cache.clear()
         self.drive = None
-        if (self.config.drive_token or ignore_drive_errors) and drive:
+        if local_environment and drive:
+            self.drive = DriveMock(self.__get_priority_argument_value('data', 'LOCAL_FOLDER'),
+                                   self.config, self.cache, ignore_errors=ignore_drive_errors)
+        elif (self.config.drive_token or ignore_drive_errors) and drive:
             self.drive = DriveConnect(self.config, self.cache, ignore_errors=ignore_drive_errors)
         self.discover = ToydiscoverAPI(self.config)
 
