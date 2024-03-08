@@ -61,6 +61,7 @@ class SyncedFile:
         """
         # refresh
         # it's in negative to re-cache on 0.
+        # or self.commands.get('sync')
         if self.__sync_time is not None and self.__cached - time() < -self.__sync_time:
             self.sync()
         # check Commands queue to see if a sync was requested.

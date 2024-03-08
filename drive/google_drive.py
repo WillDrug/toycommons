@@ -90,7 +90,7 @@ class DriveConnect(AbstractDrive):
             self.__drive = None
             self.__docs = None
         self.directories = {}
-        if self.config.drive_folder_id is not None:
+        if self.config.drive_folder_id is not None:  # constant root
             self.directories[None] = Directory(self.__drive, name='', fid=self.config.drive_folder_id,
                                                config=self.config, cache=self.cache)
 
