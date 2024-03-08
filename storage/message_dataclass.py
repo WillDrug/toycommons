@@ -7,6 +7,10 @@ class MessageDataClass:
     Expects dataclass to hold recipient and domain fields to filter.
     Upserts instead of inserting by recipient+domain;
     Deletes on get immediately. guarantees delivery but not usage.
+
+
+    For some stupid reason I made this to have only one message floating at all times...
+    Dunno. Might fix later.
     """
     datacls = None
 
@@ -35,17 +39,18 @@ class MessageDataClass:
         self.__collection.update_one({'domain': obj.domain, 'recipient': obj.recipient},
                                      {'$set': ins}, upsert=True)
 
-    def receive(self, domain, recipient, message=None) -> dict | list:
+    def receive(self, domain, recipient) -> dict | None:
+        """
+        If you want to give several commands to one recipient, give them one by one, lol
+        :param domain: Domain.
+        :param recipient: Target
+        :return:
+        """
         filter = {'domain': domain, 'recipient': recipient}
-        if message is not None:
-            filter['message'] = message
-        if message is not None:
-            data = self.__collection.find_one(filter)
-            if data is not None:
-                self.__collection.delete_one({'domain': domain, 'recipient': recipient})
-        else:  # todo test this up, I'm not sure this works liek I want it to; but it won't be used yet.
-            data = self.__collection.find_many(filter)
-            if data is not None:
-                self.__collection.delete_many(data)
 
+        data = self.__collection.find_one(filter)
+
+        if data is not None:
+            self.__collection.delete_one({'domain': domain, 'recipient': recipient})
+        # todo: return data, ok() callable.
         return data

@@ -64,6 +64,7 @@ class SyncedFile:
             self.sync()
         elif self.__command_storage is not None:
             if self.__command_storage.receive(self.domain, self.name):
+                # expecting this to be sync only.
                 self.sync()
 
         return self.__data
