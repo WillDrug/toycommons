@@ -70,13 +70,14 @@ class ToyInfra:
         self.config = Config(self.__db.config)
         self.commands = QueuedDataClass(self.__db.commands, datacls=Command)
         self.cache = DomainNameValue(self.name, self.__db.cache)
+        self.global_cache = DomainNameValue('global', self.__db.cache)
         self.cache.clear()
         self.drive = None
         if local_environment and drive:
             self.drive = DriveMock(local_folder,
                                    self.config, self.cache, ignore_errors=ignore_drive_errors)
         elif (self.config.drive_token or ignore_drive_errors) and drive:
-            self.drive = DriveConnect(self.config, self.cache, ignore_errors=ignore_drive_errors)
+            self.drive = DriveConnect(self.config, self.global_cache, ignore_errors=ignore_drive_errors)
         self.discover = ToydiscoverAPI(self.config)
 
     def get_url(self, service: str, origin=None, headers=None):
