@@ -1,9 +1,13 @@
-from drive_interface import AbstractDrive, AbstractDirectory
-
+from .drive_interface import AbstractDrive, AbstractDirectory
+from .google_drive import SyncedFile, GoogleDoc
+from typing import Callable
+import requests
+from time import time
+import shutil
 
 class LocalDirectory(AbstractDirectory):
     def __init__(self, service, name: str, fid: str, config: "Config",
-                 sync_config_field: str = 'default_config_sync_ttl', cache: "DomainNameValue" = None):
+                 sync_config_field: str = 'default_sync_ttl', cache: "DomainNameValue" = None):
         self.name = name
         self.fid = fid
         self.__config = config
@@ -49,12 +53,6 @@ class DriveMock(AbstractDrive):
             self.directories[None] = LocalDirectory(self.local_folder, name='', fid=self.config.drive_folder_id,
                                                     config=self.config, cache=self.cache)
 
-    def __refresh(self):
-        """
-        Refreshes google token.
-        :return: None
-        """
-        return True
 
     def file_by_id(self, fileid: str) -> bytes:
         """
@@ -62,8 +60,6 @@ class DriveMock(AbstractDrive):
         :param fileid: string
         :return: file data.
         """
-        if not self.__refresh():
-            return None
         with open(f'{self.local_folder}/{fileid}', 'rb') as f:
             res = f.read()
         return res
@@ -74,8 +70,6 @@ class DriveMock(AbstractDrive):
         :param folder: Folder to scan. Default is "none" which is main toychest dir.
         :return:
         """
-        if not self.__refresh():
-            return []
         return self.directories[folder].listdir
 
     def file_id_by_name(self, name: str, folder: str = None) -> str or None:
@@ -115,7 +109,7 @@ class DriveMock(AbstractDrive):
         return self.file_by_id(fid)
 
     def add_directory(self, name: str, fid: str = None, parent: str = None,
-                      sync_config_field: str = 'default_config_sync_ttl') -> None:
+                      sync_config_field: str = 'default_sync_ttl') -> None:
         """
         Add Directory object to the driveconnect list. Raises FileNotFoundError if no directory exists.
         :param name: Folder name
@@ -123,8 +117,6 @@ class DriveMock(AbstractDrive):
         :param parent: Parent folder ID to listdir non-default when finding id.
         :return: None
         """
-        if not self.__refresh():
-            return
         if fid is None:
             if parent in self.directories:
                 fid = next((q['id'] for q in self.directories[parent].listdir if
@@ -136,11 +128,11 @@ class DriveMock(AbstractDrive):
 
     def get_synced_file(self, domain: str, name: str = None, process_function: Callable = lambda data: data.decode(),
                         fid: str = None, filename: str = None, sync_time: int = None, folder: str = None,
-                        use_default_sync_time: bool = False, command_queue: "QueuedDataClass" = None,
-                        copy_filename: bool = False) -> SyncedFile:
+                        use_default_sync_time: bool = False, command_storage: "MessageDataClass" = None,
+                        copy_filename: bool = False) -> "SyncedFile":
         """
         Generated a SyncedFile objects via parameters.
-        :param command_queue: get_commands_queue function from toyinfra.
+        :param command_storage: receive function from toyinfra.
         :param domain: Domain for the synced file (represents toychest application)
         :param name: Filename within Google Drive
         :param process_function: Function which is called upon bytes data downloaded
@@ -152,33 +144,28 @@ class DriveMock(AbstractDrive):
         :param copy_filename: If set to true, filename will be overridden by google drive file name.
         :return: SyncedFile
         """
-        access_exists = self.__refresh()
         if fid is None and name is None:
             raise ValueError(f'Either name of file id should be provided to get a synced file.')
         if fid is None and access_exists:
             fid = self.file_id_by_name(name, folder=folder)
         if fid is None and access_exists:
             raise FileNotFoundError(f'Can\'t get id for {name} file.')
-        if name is None and access_exists:
+        if name is None:
             name = self.name_by_file_id(fid, folder=folder)
         if name is None and copy_filename:  # name guessing without filename doesn't work even with ignore_errors=True
             raise FileNotFoundError(f'ID {fid} does not have a corresponding file')
         if use_default_sync_time:
-            sync_time = self.config.default_config_sync_ttl
+            sync_time = self.config.default_sync_ttl
         if copy_filename:
             filename = name
-        if access_exists:
-            req_func = lambda: self.file_by_id(fid)
-        else:
-            req_func = lambda: b''
+        req_func = lambda: self.file_by_id(fid)
         return SyncedFile(domain, name, req_func, process_function=process_function,
-                          filename=filename, sync_time=sync_time, fid=fid, command_queue=command_queue,
-                          cache_only=not access_exists)
+                          filename=filename, sync_time=sync_time, fid=fid, command_storage=command_storage,
+                          cache_only=False)
 
     def get_google_doc(self, codename, doc_id, domain: str = None, get_synced: bool = True, sync_time: int = None,
-                       filename: str = None, use_default_sync: bool = False, command_queue: "QueuedDataClass" = None,
+                       filename: str = None, use_default_sync: bool = False, command_storage: "MessageDataClass" = None,
                        cache_images: bool = True, image_folder='', uri_prepend=''):
-        access_exists = self.__refresh()
 
         def process(data):
             g = GoogleDoc(data)  # process is download, download is sync so cache images = set "local" prop, always.
@@ -202,16 +189,15 @@ class DriveMock(AbstractDrive):
             # expected json locally
             return GoogleDoc(self.file_by_id(doc_id))
         if use_default_sync:
-            sync_time = self.config.default_config_sync_ttl
+            sync_time = self.config.default_sync_ttl
         if filename is None:
             filename = f'{doc_id}.gdoc_local'
-        if access_exists:
-            req_func = lambda: self.file_by_id(doc_id)
-        else:
-            req_func = lambda: '{}'
+
+        req_func = lambda: self.file_by_id(doc_id)
+
         return SyncedFile(domain, codename, req_func,
                           process_function=process, sync_time=sync_time, fid=doc_id,
-                          filename=filename, command_queue=command_queue, cache_only=not access_exists)
+                          filename=filename, command_storage=command_storage, cache_only=False)
 
     def list_google_docs(self, folder=None):
         if not self.__refresh():

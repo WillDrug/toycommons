@@ -2,7 +2,7 @@
 This is made to work as a general plug-in module for willdrug/toychest but can be adapted.
 
 1. If ran via ToyInfra expects a MongoDB connection. This is mainly for configuration storage purposes. 
-MongoDB is used as a config storage, command queue and cache.
+MongoDB is used as a config storage, command storage and cache.
 2. Storage module proxies mongodb functions into actionable classes
 3. Model module is mainly dataclasses to unify db work between apps
 4. Drive module implements a connection to Google Drive, allowing to get and process drive files and Google Docs
@@ -20,9 +20,9 @@ Made like this because it works.
 ### CachedDataclass
 This gets stuff from collection as a NameValue and does not access the DB until a re-cache timer has passed.
 
-### QueueDataclass
-This provides a generator, which can be given a `send(True)` to delete the object from db. 
-Like a queue!
+### MessageDataClass
+This provides an inbox with send and receive methods for objects subclassing Message 
+It always uses domain+recipient and has only one command per recipient present;
 
 ## Google Drive
 To use the drive module separately, initialize Config to have "drive_token", "drive_folder_id" 
@@ -40,3 +40,7 @@ This class is a parser for Google Docs, turning Google json structure into unrol
 Implemented functions allows to transform Google Doc into other formats and back.
 
 I might remove this code into a standalone script for general usage if anyone needs that.
+
+# To Do
+1. Add normal testing
+2. Add obvious error auto checking (like failed imports)

@@ -5,8 +5,8 @@ from .storage.config import Config
 from .drive import DriveConnect, DriveMock
 from .toydiscover import ToydiscoverAPI
 from .storage.namevalue import DomainNameValue
-from .storage.queue_dataclass import QueuedDataClass
-from .model.command import Command
+from .storage.message_dataclass import MessageDataClass
+from .model.message import Command
 import json
 
 
@@ -68,7 +68,7 @@ class ToyInfra:
             self.__odbc_connection = MongoStorage(host=host, port=port, user=user, passwd=passwd)
         self.__db = self.__odbc_connection.toyinfra
         self.config = Config(self.__db.config)
-        self.commands = QueuedDataClass(self.__db.commands, datacls=Command)
+        self.commands = MessageDataClass(self.__db.commands, datacls=Command)
         self.cache = DomainNameValue(self.name, self.__db.cache)
         self.global_cache = DomainNameValue('global', self.__db.cache)
         self.cache.clear()
@@ -120,7 +120,7 @@ class ToyInfra:
                                           filename=fname,
                                           sync_time=sync_time,
                                           use_default_sync_time=use_default_sync_time,
-                                          command_queue=self.commands)
+                                          command_storage=self.commands)
 
     def cleanup(self, domain=None):
         """

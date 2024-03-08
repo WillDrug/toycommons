@@ -9,7 +9,7 @@ import shutil
 from typing import Callable
 from googleapiclient.http import MediaIoBaseDownload
 from time import time
-from drive_interface import AbstractDrive, AbstractDirectory
+from .drive_interface import AbstractDrive, AbstractDirectory
 from .synced import SyncedFile
 from .document import GoogleDoc
 
@@ -28,7 +28,7 @@ class Directory(AbstractDirectory):
     """
 
     def __init__(self, service: Resource, name: str, fid: str, config: "Config",
-                 sync_config_field: str = 'default_config_sync_ttl', cache: "DomainNameValue" = None):
+                 sync_config_field: str = 'default_sync_ttl', cache: "DomainNameValue" = None):
         """
         :param service: Google Drive Resource object made with build()
         :param name: Folder name
@@ -171,7 +171,7 @@ class DriveConnect(AbstractDrive):
         return self.file_by_id(fid)
 
     def add_directory(self, name: str, fid: str = None, parent: str = None,
-                      sync_config_field: str = 'default_config_sync_ttl') -> None:
+                      sync_config_field: str = 'default_sync_ttl') -> None:
         """
         Add Directory object to the driveconnect list. Raises FileNotFoundError if no directory exists.
         :param sync_config_field: Field of config to use as a default TTL time
@@ -193,12 +193,12 @@ class DriveConnect(AbstractDrive):
 
     def get_synced_file(self, domain: str, name: str = None, process_function: Callable = lambda data: data.decode(),
                         fid: str = None, filename: str = None, sync_time: int = None, folder: str = None,
-                        use_default_sync_time: bool = False, command_queue: "QueuedDataClass" = None,
+                        use_default_sync_time: bool = False, command_storage: "MessageDataClass" = None,
                         copy_filename: bool = False) -> SyncedFile:
         """
         Generated a SyncedFile objects via parameters.
         :param fid: file id within drive
-        :param command_queue: get_commands_queue function from toyinfra.
+        :param command_storage: receive function from toyinfra.
         :param domain: Domain for the synced file (represents toychest application)
         :param name: Filename within Google Drive
         :param process_function: Function which is called upon bytes data downloaded
@@ -222,7 +222,7 @@ class DriveConnect(AbstractDrive):
         if name is None and copy_filename:  # name guessing without filename doesn't work even with ignore_errors=True
             raise FileNotFoundError(f'ID {fid} does not have a corresponding file')
         if use_default_sync_time:
-            sync_time = self.config.default_config_sync_ttl
+            sync_time = self.config.default_sync_ttl
         if copy_filename:
             filename = name
         if access_exists:
@@ -230,11 +230,11 @@ class DriveConnect(AbstractDrive):
         else:
             req_func = lambda: b''
         return SyncedFile(domain, name, req_func, process_function=process_function,
-                          filename=filename, sync_time=sync_time, fid=fid, command_queue=command_queue,
+                          filename=filename, sync_time=sync_time, fid=fid, command_storage=command_storage,
                           cache_only=not access_exists)
 
     def get_google_doc(self, codename, doc_id, domain: str = None, get_synced: bool = True, sync_time: int = None,
-                       filename: str = None, use_default_sync: bool = False, command_queue: "QueuedDataClass" = None,
+                       filename: str = None, use_default_sync: bool = False, command_storage: "MessageDataClass" = None,
                        cache_images: bool = True, image_folder='', uri_prepend=''):
         access_exists = self.__refresh()
 
@@ -259,7 +259,7 @@ class DriveConnect(AbstractDrive):
         if not get_synced:
             return GoogleDoc(self.__docs.documents().get(documentId=doc_id).execute())
         if use_default_sync:
-            sync_time = self.config.default_config_sync_ttl
+            sync_time = self.config.default_sync_ttl
         if filename is None:
             filename = f'{doc_id}.gdoc'
         if access_exists:
@@ -268,7 +268,7 @@ class DriveConnect(AbstractDrive):
             req_func = lambda: '{}'
         return SyncedFile(domain, codename, req_func,
                           process_function=process, sync_time=sync_time, fid=doc_id,
-                          filename=filename, command_queue=command_queue, cache_only=not access_exists)
+                          filename=filename, command_storage=command_storage, cache_only=not access_exists)
 
     def list_google_docs(self, folder=None):
         if not self.__refresh():

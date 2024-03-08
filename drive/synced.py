@@ -5,12 +5,13 @@ from typing import Callable, Any
 
 class SyncedFile:
     """
-    File synced with GDrive
+    File synced with GDrive;
+    todo: separate from drive as it's really a common thing.
     """
 
     def __init__(self, domain: str, name: str, request_function: Callable,
                  process_function: Callable = lambda data: data.decode(), filename: str = None,
-                 sync_time: int = None, fid: str = None, command_queue: "QueuedDataClass" = None,
+                 sync_time: int = None, fid: str = None, command_storage: "MessageDataClass" = None,
                  cache_only: bool = False):
         """
         File synced and cached in local storage from GDrive.
@@ -20,10 +21,10 @@ class SyncedFile:
         :param process_function: Function to process file data
         :param filename: Local filename to store. None means keep in memory
         :param sync_time: TTL of sync. None means never refresh
-        :param command_queue: QueuedDataClass to get commands from
+        :param command_storage: MessageDataClass(Command) to get commands from
         :param fid: GDrive file ID.
         """
-        self.__commands_queue = command_queue
+        self.__command_storage = command_storage
         self.domain = domain
         self.name = name
         self.filename = filename
@@ -59,27 +60,10 @@ class SyncedFile:
         Property to return actual file data.
         :return: Any, depending on the process function.
         """
-        # refresh
-        # it's in negative to re-cache on 0.
-        # or self.commands.get('sync')
         if self.__sync_time is not None and self.__cached - time() < -self.__sync_time:
             self.sync()
-        # check Commands queue to see if a sync was requested.
-        elif self.__commands_queue is not None:
-            cmds_queue = self.__commands_queue.get_queue(action='sync', domain=self.domain,
-                                                         **{'$or': [
-                                                             {'file': self.name},
-                                                             {'$and':
-                                                                 [
-                                                                     {'file_id': self.fid},
-                                                                     {'$nor': [{'file_id': None}]}
-                                                                 ]
-                                                             }
-                                                         ]})
-            for _ in cmds_queue:
+        elif self.__command_storage is not None:
+            if self.__command_storage.receive(self.domain, self.name):
                 self.sync()
-                try:
-                    cmds_queue.send(True)
-                except StopIteration:
-                    pass
+
         return self.__data

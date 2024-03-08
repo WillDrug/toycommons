@@ -16,3 +16,4 @@ class ConfigData:
     drive_token: dict = None
     drive_folder_id: str = None
     drive_config_sync_ttl: int = 86400
+    command_access_token: str = None

@@ -1,10 +1,11 @@
 from abc import ABCMeta, abstractmethod
+from typing import Callable
 
 
 class AbstractDirectory(metaclass=ABCMeta):
     @abstractmethod
     def __init__(self, service, name: str, fid: str, config: "Config",
-                 sync_config_field: str = 'default_config_sync_ttl', cache: "DomainNameValue" = None):
+                 sync_config_field: str = 'default_sync_ttl', cache: "DomainNameValue" = None):
         pass
 
     @property
@@ -25,14 +26,6 @@ class AbstractDrive(metaclass=ABCMeta):
     def __init__(self, local_folder, config: "Config", cache: "DomainNameValue", ignore_errors=False):
         """
         :param config: toycommons.storage.config object based on toycommons.model.config data
-        """
-        pass
-
-    @abstractmethod
-    def __refresh(self):
-        """
-        Refreshes google token.
-        :return: None
         """
         pass
 
@@ -86,7 +79,7 @@ class AbstractDrive(metaclass=ABCMeta):
 
     @abstractmethod
     def add_directory(self, name: str, fid: str = None, parent: str = None,
-                      sync_config_field: str = 'default_config_sync_ttl') -> None:
+                      sync_config_field: str = 'default_sync_ttl') -> None:
         """
         Add Directory object to the driveconnect list. Raises FileNotFoundError if no directory exists.
         :param name: Folder name
@@ -99,11 +92,11 @@ class AbstractDrive(metaclass=ABCMeta):
     @abstractmethod
     def get_synced_file(self, domain: str, name: str = None, process_function: Callable = lambda data: data.decode(),
                         fid: str = None, filename: str = None, sync_time: int = None, folder: str = None,
-                        use_default_sync_time: bool = False, command_queue: "QueuedDataClass" = None,
-                        copy_filename: bool = False) -> SyncedFile:
+                        use_default_sync_time: bool = False, command_storage: "MessageDataClass" = None,
+                        copy_filename: bool = False) -> "SyncedFile":
         """
         Generated a SyncedFile objects via parameters.
-        :param command_queue: get_commands_queue function from toyinfra.
+        :param command_storage: receiму function from toyinfra.
         :param domain: Domain for the synced file (represents toychest application)
         :param name: Filename within Google Drive
         :param process_function: Function which is called upon bytes data downloaded
@@ -119,7 +112,7 @@ class AbstractDrive(metaclass=ABCMeta):
 
     @abstractmethod
     def get_google_doc(self, codename, doc_id, domain: str = None, get_synced: bool = True, sync_time: int = None,
-                       filename: str = None, use_default_sync: bool = False, command_queue: "QueuedDataClass" = None,
+                       filename: str = None, use_default_sync: bool = False, command_storage: "MessageDataClass" = None,
                        cache_images: bool = True, image_folder='', uri_prepend=''):
         pass
 
