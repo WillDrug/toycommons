@@ -242,7 +242,8 @@ class DriveConnect(AbstractDrive):
             g = GoogleDoc(data)  # process is download, download is sync so cache images = set "local" prop, always.
             if cache_images:
                 for img in g.get_image_objects():
-                    uri = img.content.content.properties.source or img.content.content.properties.content
+                    # using google proxy of files instead of their source of upload
+                    uri = img.content.content.properties.content  # or img.content.content.properties.source
                     img_filename = f'{filename}{img.object_id}'
                     img_path = path.join(image_folder, img_filename)
                     if uri is None:
