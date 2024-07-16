@@ -3,6 +3,8 @@ from .google_drive import SyncedFile, GoogleDoc
 from typing import Callable
 import requests
 from time import time
+import os
+from pathlib import Path
 import shutil
 
 class LocalDirectory(AbstractDirectory):
@@ -26,12 +28,15 @@ class LocalDirectory(AbstractDirectory):
             self.__cache_db[f'{self.name}_listdir'] = [{'name': file,
                                                         'id': file,
                                                         'mimeType':
-                                                            0 if not path.isfile(path.join(self.__service, file))
+                                                            0 if not Path.is_file(Path(self.__service).joinpath(Path(file)))
                                                             else 2 if file.endswith('.gdoc_local') else 1} for file
                                                        in os.listdir(self.__service)]
             self.__cache_db[f'{self.name}_last_cached'] = time()
         return self.__cache_db[f'{self.name}_listdir']
 
+    @property
+    def local_path(self):
+        return self.__service
 
 # todo put drive mock on the same interface
 class DriveMock(AbstractDrive):
@@ -60,7 +65,7 @@ class DriveMock(AbstractDrive):
         :param fileid: string
         :return: file data.
         """
-        with open(f'{self.local_folder}/{fileid}', 'rb') as f:
+        with open(f'{fileid}', 'rb') as f:
             res = f.read()
         return res
 
@@ -81,7 +86,7 @@ class DriveMock(AbstractDrive):
         """
         for f in self.get_folder_files(folder=folder):
             if f['name'] == name:
-                return f['id']
+                return f'{self.directories[folder].local_path}/{f["id"]}'
         return None
 
     def name_by_file_id(self, fid: str, folder: str = None) -> str or None:
@@ -122,8 +127,13 @@ class DriveMock(AbstractDrive):
                 fid = next((q['id'] for q in self.directories[parent].listdir if
                             q['name'] == name and q['mimeType'] == self.FOLDER_TYPE), None)
             if fid is None:
-                raise FileNotFoundError(f'Folder {name} was not found in Drive')
-        self.directories[name] = LocalDirectory(self.local_folder, name, fid=fid, config=self.config,
+                raise FileNotFoundError(f'Folder {name} was not found in FakeDrive')
+        path_to_add = self.local_folder
+        if parent is not None:
+            path_to_add = str(Path(self.local_folder).joinpath(Path(parent)))
+        if name != self.local_folder:
+            path_to_add = str(Path(path_to_add).joinpath(Path(name)))
+        self.directories[name] = LocalDirectory(path_to_add, name, fid=fid, config=self.config,
                                                 sync_config_field=sync_config_field, cache=self.cache)
 
     def get_synced_file(self, domain: str, name: str = None, process_function: Callable = lambda data: data.decode(),
@@ -146,9 +156,9 @@ class DriveMock(AbstractDrive):
         """
         if fid is None and name is None:
             raise ValueError(f'Either name of file id should be provided to get a synced file.')
-        if fid is None and access_exists:
+        if fid is None:
             fid = self.file_id_by_name(name, folder=folder)
-        if fid is None and access_exists:
+        if fid is None:
             raise FileNotFoundError(f'Can\'t get id for {name} file.')
         if name is None:
             name = self.name_by_file_id(fid, folder=folder)
