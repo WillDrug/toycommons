@@ -5,5 +5,4 @@ google
 google-api-python-client
 google-auth-oauthlib
 fastapi_utils
-typing-extensions
 oauth2client
