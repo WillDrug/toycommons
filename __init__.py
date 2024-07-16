@@ -49,7 +49,7 @@ class ToyInfra:
         passwd = self.__get_priority_argument_value(passwd, 'T_PASSWORD')
 
         local_environment = True if getenv('LOCAL') else False
-        local_folder = self.__get_priority_argument_value('data', 'LOCAL_FOLDER')
+        local_folder = self.__get_priority_argument_value('data', 'DRIVE_LOCAL_FOLDER')
         if local_environment:
             self.__odbc_connection = LocalStorage()
             try:

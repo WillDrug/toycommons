@@ -1,6 +1,7 @@
 from time import time
 import pickle
 from typing import Callable, Any
+from pathlib import Path
 
 
 class SyncedFile:
@@ -50,6 +51,7 @@ class SyncedFile:
         :return:
         """
         self.__data = self.__process(self.__request())
+        Path(self.filename).parent.mkdir(parents=True, exist_ok=True)
         if self.filename is not None:
             with open(self.filename, 'wb') as f:
                 pickle.dump(self.__data, f)
