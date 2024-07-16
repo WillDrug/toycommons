@@ -4,5 +4,5 @@ requests
 google
 google-api-python-client
 google-auth-oauthlib
-fastapi_utils
+fastapi_utils==0.2.1
 oauth2client
