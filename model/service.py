@@ -1,4 +1,5 @@
 from pydantic import BaseModel
+from typing import Optional
 
 """
 Dataclass for toydiscovery mechanism
@@ -10,5 +11,5 @@ class Service(BaseModel):
     host: str
     name: str
     description: str
-    tags: list = None
-    image: str = None
+    tags: Optional[list] = None
+    image: Optional[str] = None
