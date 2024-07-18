@@ -28,7 +28,8 @@ class Directory(AbstractDirectory):
     """
 
     def __init__(self, service: Resource, name: str, fid: str, config: "Config",
-                 sync_config_field: str = 'default_sync_ttl', cache: "DomainNameValue" = None):
+                 sync_config_field: str = 'default_sync_ttl', cache: "DomainNameValue" = None,
+                 command = None):
         """
         :param service: Google Drive Resource object made with build()
         :param name: Folder name
@@ -40,6 +41,7 @@ class Directory(AbstractDirectory):
         self.__config = config
         self.__sync_field = sync_config_field
         self.__cache_db = cache
+        self.command = command
         # self.__cache_db[f'{self.name}_last_cached'] = 0  # reinit relist. redundant but nice.
         # self.__cache_db[f'{self.name}_listdir'] = None
         self.__service = service
@@ -50,7 +52,15 @@ class Directory(AbstractDirectory):
         :return: List of files within the folder in GDrive format.
         """
         cached = self.__cache_db[f'{self.name}_last_cached'] or 0
-        if time() - cached > self.__config[self.__sync_field]:
+        recache = cached == 0
+        if self.__sync_field is not None:
+            if time() - cached > self.__config[self.__sync_field]:
+                recache = True
+        if self.command is not None:
+            cmd = self.command.receive(None, self.fid)
+            if cmd is not None:
+                recache = True
+        if recache:
             ldr_listing = []
             nextPageToken = 'init'
             while nextPageToken:
@@ -62,9 +72,9 @@ class Directory(AbstractDirectory):
                     execute()
                 nextPageToken = lst.get('nextPageToken')
                 ldr_listing.extend(lst['files'])
-            self.__cache_db[f'{self.name}_listdir'] = ldr_listing
-            self.__cache_db[f'{self.name}_last_cached'] = time()
-        return self.__cache_db[f'{self.name}_listdir']
+            self.__cache_db[f'{self.fid}_listdir'] = ldr_listing
+            self.__cache_db[f'{self.fid}_last_cached'] = time()
+        return self.__cache_db[f'{self.fid}_listdir']
 
 
 class AuthException(Exception):
@@ -83,7 +93,7 @@ class DriveConnect(AbstractDrive):
     # Google API scopes.
     SCOPES = ['https://www.googleapis.com/auth/drive.readonly', 'https://www.googleapis.com/auth/documents.readonly']
 
-    def __init__(self, config: "Config", cache: "DomainNameValue", ignore_errors=False):
+    def __init__(self, config: "Config", cache: "DomainNameValue", ignore_errors=False, command_queue=None):
         """
         :param config: toycommons.storage.config object based on toycommons.model.config data
         """
@@ -98,9 +108,10 @@ class DriveConnect(AbstractDrive):
             self.__drive = None
             self.__docs = None
         self.directories = {}
+        self.command = command_queue
         if self.config.drive_folder_id is not None:  # constant root
             self.directories[None] = Directory(self.__drive, name='', fid=self.config.drive_folder_id,
-                                               config=self.config, cache=self.cache)
+                                               config=self.config, cache=self.cache, command=self.command)
 
     def __refresh(self):
         """
@@ -179,15 +190,19 @@ class DriveConnect(AbstractDrive):
         return self.file_by_id(fid)
 
     def add_directory(self, name: str, fid: str = None, parent: str = None,
-                      sync_config_field: str = 'default_sync_ttl') -> None:
+                      sync_config_field: str = 'default_sync_ttl', sync_now=False) -> None:
         """
         Add Directory object to the driveconnect list. Raises FileNotFoundError if no directory exists.
         :param sync_config_field: Field of config to use as a default TTL time
         :param name: Folder name
         :param fid: Optional: folder id. If not given, will be found by listing.
         :param parent: Parent folder ID to listdir non-default when finding id.
+        :param sync_now: Request listdir to cache up directory listing right away
         :return: None
         """
+        # todo: command this up; instead of auto-sync (for blog which has 6000 files), on demand only.
+        # keep in mind, folder listings are global.
+        # think on switching listings from name to id in cache keys.
         if not self.__refresh():
             return
         if fid is None:
@@ -197,7 +212,9 @@ class DriveConnect(AbstractDrive):
             if fid is None:
                 raise FileNotFoundError(f'Folder {name} was not found in Drive')
         self.directories[name] = Directory(self.__drive, name, fid=fid, config=self.config,
-                                           sync_config_field=sync_config_field, cache=self.cache)
+                                           sync_config_field=sync_config_field, cache=self.cache, command=self.command)
+        if sync_now:
+            self.directories[name].listdir
 
     def get_synced_file(self, domain: str, name: str = None, process_function: Callable = lambda data: data.decode(),
                         fid: str = None, filename: str = None, sync_time: int = None, folder: str = None,
