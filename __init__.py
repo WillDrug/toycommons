@@ -104,6 +104,8 @@ class ToyInfra:
         :param origin: origin header from the request to use instead of base url
         :return: URL to self
         """
+        if getenv('LOCAL'):
+            return ''
         return self.get_url(self.name, origin=origin, headers=headers)
 
     def get_own_config(self, sync_time: int = None, use_default_sync_time: bool = False):

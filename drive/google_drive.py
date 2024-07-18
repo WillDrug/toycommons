@@ -51,10 +51,18 @@ class Directory(AbstractDirectory):
         """
         cached = self.__cache_db[f'{self.name}_last_cached'] or 0
         if time() - cached > self.__config[self.__sync_field]:
-            self.__cache_db[f'{self.name}_listdir'] = \
-                self.__service.files().list(q=f"'{self.fid}' in parents",
-                                            fields="files(id, name, description, mimeType)") \
-                    .execute()['files']
+            ldr_listing = []
+            nextPageToken = 'init'
+            while nextPageToken:
+                if nextPageToken == 'init':
+                    nextPageToken = None
+                lst = self.__service.files().list(q=f"'{self.fid}' in parents",
+                                                    fields="files(id, name, description, mimeType), nextPageToken",
+                                                  pageToken=nextPageToken). \
+                    execute()
+                nextPageToken = lst.get('nextPageToken')
+                ldr_listing.extend(lst['files'])
+            self.__cache_db[f'{self.name}_listdir'] = ldr_listing
             self.__cache_db[f'{self.name}_last_cached'] = time()
         return self.__cache_db[f'{self.name}_listdir']
 
