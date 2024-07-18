@@ -29,7 +29,7 @@ class Directory(AbstractDirectory):
 
     def __init__(self, service: Resource, name: str, fid: str, config: "Config",
                  sync_config_field: str = 'default_sync_ttl', cache: "DomainNameValue" = None,
-                 command = None):
+                 command = None, sync_now=False):
         """
         :param service: Google Drive Resource object made with build()
         :param name: Folder name
@@ -45,6 +45,23 @@ class Directory(AbstractDirectory):
         # self.__cache_db[f'{self.name}_last_cached'] = 0  # reinit relist. redundant but nice.
         # self.__cache_db[f'{self.name}_listdir'] = None
         self.__service = service
+        if sync_now:
+            self.sync()
+
+    def sync(self):
+        ldr_listing = []
+        nextPageToken = 'init'
+        while nextPageToken:
+            if nextPageToken == 'init':
+                nextPageToken = None
+            lst = self.__service.files().list(q=f"'{self.fid}' in parents",
+                                              fields="files(id, name, description, mimeType), nextPageToken",
+                                              pageToken=nextPageToken). \
+                execute()
+            nextPageToken = lst.get('nextPageToken')
+            ldr_listing.extend(lst['files'])
+        self.__cache_db[f'{self.fid}_listdir'] = ldr_listing
+        self.__cache_db[f'{self.fid}_last_cached'] = time()
 
     @property
     def listdir(self):
@@ -61,19 +78,7 @@ class Directory(AbstractDirectory):
             if cmd is not None:
                 recache = True
         if recache:
-            ldr_listing = []
-            nextPageToken = 'init'
-            while nextPageToken:
-                if nextPageToken == 'init':
-                    nextPageToken = None
-                lst = self.__service.files().list(q=f"'{self.fid}' in parents",
-                                                    fields="files(id, name, description, mimeType), nextPageToken",
-                                                  pageToken=nextPageToken). \
-                    execute()
-                nextPageToken = lst.get('nextPageToken')
-                ldr_listing.extend(lst['files'])
-            self.__cache_db[f'{self.fid}_listdir'] = ldr_listing
-            self.__cache_db[f'{self.fid}_last_cached'] = time()
+            self.sync()
         return self.__cache_db[f'{self.fid}_listdir']
 
 
