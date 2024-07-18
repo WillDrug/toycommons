@@ -51,7 +51,7 @@ class Directory(AbstractDirectory):
         """
         :return: List of files within the folder in GDrive format.
         """
-        cached = self.__cache_db[f'{self.name}_last_cached'] or 0
+        cached = self.__cache_db[f'{self.fid}_last_cached'] or 0
         recache = cached == 0
         if self.__sync_field is not None:
             if time() - cached > self.__config[self.__sync_field]:
