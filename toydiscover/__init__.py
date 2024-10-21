@@ -1,6 +1,8 @@
 import requests
 from toycommons.model.service import Service
 import threading
+from requests.exceptions import ConnectionError
+from time import sleep
 
 
 class ToydiscoverAPI:
@@ -22,12 +24,19 @@ class ToydiscoverAPI:
         """
         return f'{self.config.discovery_url}/services'
 
-    def do_report(self):
+    def do_report(self, retry=0):
         """
         POSTs request to ToyDiscover to report self.
         :return: None
         """
-        requests.post(self.__url, headers={'Content-Type': 'application/json'}, data=self.__service.json())
+        try:
+            requests.post(self.__url, headers={'Content-Type': 'application/json'}, data=self.__service.json())
+        except ConnectionError as e:
+            if retry < 3:  # todo: pretty this up if works
+                sleep(10)
+                return self.do_report(retry=retry+1)
+            else:
+                raise e
 
     def __report(self):
         """
